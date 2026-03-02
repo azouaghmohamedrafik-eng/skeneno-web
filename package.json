@@ -1,0 +1,33 @@
+{
+  "name": "maroc-luxe-webapp",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "appwrite": "^22.4.1",
+    "autoprefixer": "^10.4.16",
+    "csv-parser": "^3.2.0",
+    "dotenv": "^17.3.1",
+    "form-data": "^4.0.5",
+    "lucide-react": "latest",
+    "next": "^16.1.6",
+    "node-appwrite": "^22.1.2",
+    "node-fetch": "^3.3.2",
+    "react": "latest",
+    "react-dom": "latest"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.2.1",
+    "@types/node": "latest",
+    "@types/react": "latest",
+    "@types/react-dom": "latest",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^3.4.1",
+    "typescript": "latest"
+  }
+}
