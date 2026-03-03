@@ -13,7 +13,8 @@ import {
   Tag,
   Gift,
   Percent,
-  Star 
+  Star,
+  Package // Icono para el stock
 } from "lucide-react";
 // MIGRACIÓN A APPWRITE
 import { databases, DATABASE_ID, storage } from "@/appwriteConfig";
@@ -23,6 +24,7 @@ interface Product {
   id: string; 
   name: string; 
   price: number; 
+  stock: number; // Nueva propiedad
   image_url: string;
   description: string; 
   format: string; 
@@ -49,7 +51,7 @@ export default function InventoryPage() {
   const [currentId, setCurrentId] = useState<string | null>(null);
   
   const [form, setForm] = useState({ 
-    name: "", price: "", format: "", desc: "", ing: "", cat: "", img: "",
+    name: "", price: "", stock: "0", format: "", desc: "", ing: "", cat: "", img: "",
     isOffer: false, isGift: false, isVisage: false, isCorps: false, isCheveux: false, isSpecial: false 
   });
   
@@ -75,6 +77,7 @@ export default function InventoryPage() {
         id: d.$id,
         name: d.name,
         price: d.price,
+        stock: d.stock || 0, // Mapeo del stock
         image_url: d.image_url,
         description: d.description,
         format: d.format,
@@ -108,7 +111,7 @@ export default function InventoryPage() {
         notify("Catégorie modifiée", "success");
       } else {
         await databases.createDocument(DATABASE_ID, 'categories', ID.unique(), { name: newCatName });
-        notify("Catégorie ajoutée", "success");
+        notify("Catégorie añadida", "success");
       }
       setNewCatName(""); setIsEditingCat(false); setCurrentCatId(null);
       fetchData();
@@ -121,7 +124,7 @@ export default function InventoryPage() {
       await databases.deleteDocument(DATABASE_ID, 'categories', id);
       notify("Catégorie supprimée", "success");
       fetchData();
-    } catch (e) { notify("Erreur: La catégorie est peut-être liée à des produits", "error"); }
+    } catch (e) { notify("Erreur: La categoría est peut-être liée à des produits", "error"); }
   };
 
   // --- PRODUCTOS ---
@@ -148,11 +151,11 @@ export default function InventoryPage() {
     e.preventDefault();
     setLoading(true);
 
-    // CORRECCIÓN: Enviar null si el string está vacío para evitar error de formato URL
     const data = {
       name: form.name, 
       price: parseFloat(form.price), 
-      image_url: form.img || null, // <--- AQUÍ ESTABA EL ERROR (Si es "" falla, debe ser null)
+      stock: parseInt(form.stock), // Guardar stock como entero
+      image_url: form.img || null, 
       description: form.desc, 
       format: form.format, 
       ingredients: form.ing,
@@ -171,8 +174,8 @@ export default function InventoryPage() {
       } else {
         await databases.createDocument(DATABASE_ID, 'products', ID.unique(), data);
       }
-      // Resetear formulario
-      setForm({ name: "", price: "", format: "", desc: "", ing: "", cat: "", img: "", isOffer: false, isGift: false, isVisage: false, isCorps: false, isCheveux: false, isSpecial: false });
+      // Resetear formulario con stock en 0
+      setForm({ name: "", price: "", stock: "0", format: "", desc: "", ing: "", cat: "", img: "", isOffer: false, isGift: false, isVisage: false, isCorps: false, isCheveux: false, isSpecial: false });
       setIsEditing(false);
       fetchData();
       notify("Produit enregistré !", "success");
@@ -215,35 +218,59 @@ export default function InventoryPage() {
         <div className="lg:col-span-2 bg-white p-8 rounded-xl shadow-sm border border-gray-100">
           <h3 className="text-xs font-bold uppercase tracking-widest text-[#B29071] mb-6 flex items-center gap-2">
             {isEditing ? <Pencil className="w-4 h-4"/> : <Plus className="w-4 h-4"/>} 
-            {isEditing ? "Modifier le produit" : "Ajouter un produit"}
+            {isEditing ? "Modifier le produit" : "Ajouter un producto"}
           </h3>
           
           <form onSubmit={handleSaveProduct} className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <input type="text" placeholder="Nom" value={form.name} onChange={e => setForm({...form, name: e.target.value})} className="w-full border p-3 rounded text-sm outline-none focus:border-[#B29071]" required />
+              <div className="space-y-1">
+                <input type="text" placeholder="Nom" value={form.name} onChange={e => setForm({...form, name: e.target.value})} className="w-full border p-3 rounded text-sm outline-none focus:border-[#B29071]" required />
+                <p className="text-[9px] text-gray-400 italic px-1">Ex: Huile d'Argan Pure</p>
+              </div>
               <div className="grid grid-cols-2 gap-4">
-                <input type="number" step="0.01" placeholder="Prix (DHS)" value={form.price} onChange={e => setForm({...form, price: e.target.value})} className="w-full border p-3 rounded text-sm outline-none focus:border-[#B29071]" required />
-                <input type="text" placeholder="Format" value={form.format} onChange={e => setForm({...form, format: e.target.value})} className="w-full border p-3 rounded text-sm outline-none focus:border-[#B29071]" />
+                <div className="space-y-1">
+                    <input type="number" step="0.01" placeholder="Prix (DHS)" value={form.price} onChange={e => setForm({...form, price: e.target.value})} className="w-full border p-3 rounded text-sm outline-none focus:border-[#B29071]" required />
+                    <p className="text-[9px] text-gray-400 italic px-1">En Dirhams</p>
+                </div>
+                <div className="space-y-1">
+                    <input type="number" placeholder="Stock" value={form.stock} onChange={e => setForm({...form, stock: e.target.value})} className="w-full border p-3 rounded text-sm outline-none focus:border-[#B29071]" required />
+                    <p className="text-[9px] text-gray-400 italic px-1">Quantité dispo.</p>
+                </div>
               </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <select value={form.cat} onChange={e => setForm({...form, cat: e.target.value})} className="w-full border p-3 rounded text-sm outline-none focus:border-[#B29071] bg-white">
-                <option value="">Catégorie</option>
-                {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
+              <div className="space-y-1">
+                <input type="text" placeholder="Format" value={form.format} onChange={e => setForm({...form, format: e.target.value})} className="w-full border p-3 rounded text-sm outline-none focus:border-[#B29071]" />
+                <p className="text-[9px] text-gray-400 italic px-1">Ex: 50ml, 100g, etc.</p>
+              </div>
               
-              <label className="flex items-center gap-2 w-full border p-3 rounded text-sm cursor-pointer hover:bg-gray-50 transition-colors">
-                {uploading ? <Loader2 className="w-4 h-4 animate-spin"/> : <Upload className="w-4 h-4 text-[#B29071]"/>}
-                <span className="text-gray-500 truncate">{form.img ? "Image chargée ✓" : "Charger una photo"}</span>
-                <input type="file" accept="image/*" onChange={handleFileUpload} className="hidden" />
-              </label>
+              <div className="space-y-1">
+                <select value={form.cat} onChange={e => setForm({...form, cat: e.target.value})} className="w-full border p-3 rounded text-sm outline-none focus:border-[#B29071] bg-white">
+                    <option value="">Catégorie</option>
+                    {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+                <p className="text-[9px] text-gray-400 italic px-1">Groupe du produit</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-6">
+              <div className="space-y-1">
+                <label className="flex items-center gap-2 w-full border p-3 rounded text-sm cursor-pointer hover:bg-gray-50 transition-colors">
+                    {uploading ? <Loader2 className="w-4 h-4 animate-spin"/> : <Upload className="w-4 h-4 text-[#B29071]"/>}
+                    <span className="text-gray-500 truncate">{form.img ? "Image chargée ✓" : "Charger una photo"}</span>
+                    <input type="file" accept="image/*" onChange={handleFileUpload} className="hidden" />
+                </label>
+                <p className="text-[9px] text-gray-400 italic px-1 text-center">Format suggéré: 4:5 (Portrait)</p>
+              </div>
             </div>
 
             <div className="space-y-4">
-              <label className="text-[10px] font-bold uppercase text-gray-400 tracking-widest">Tags</label>
+              <div className="flex justify-between items-end">
+                <label className="text-[10px] font-bold uppercase text-gray-400 tracking-widest">Tags & Visibilité</label>
+                <p className="text-[9px] text-gray-400 italic">Définit les filtres et badges</p>
+              </div>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4 p-4 bg-gray-50 rounded-lg border border-gray-100">
-                {/* Checkboxes manuales para asegurar control */}
                 <label className="flex items-center gap-3 cursor-pointer group">
                     <input type="checkbox" checked={form.isVisage} onChange={e => setForm({...form, isVisage: e.target.checked})} className="w-4 h-4 accent-[#B29071]" />
                     <span className="text-[11px] font-bold uppercase text-gray-600">Visage</span>
@@ -272,12 +299,18 @@ export default function InventoryPage() {
               </div>
             </div>
 
-            <textarea placeholder="Description..." value={form.desc} onChange={e => setForm({...form, desc: e.target.value})} className="w-full border p-3 rounded text-sm h-24 outline-none focus:border-[#B29071] resize-none" />
-            <textarea placeholder="Ingrédients..." value={form.ing} onChange={e => setForm({...form, ing: e.target.value})} className="w-full border p-3 rounded text-sm h-24 outline-none focus:border-[#B29071] resize-none" />
+            <div className="space-y-1">
+                <textarea placeholder="Description..." value={form.desc} onChange={e => setForm({...form, desc: e.target.value})} className="w-full border p-3 rounded text-sm h-24 outline-none focus:border-[#B29071] resize-none" />
+                <p className="text-[9px] text-gray-400 italic px-1">Texte de présentation commerciale</p>
+            </div>
+            <div className="space-y-1">
+                <textarea placeholder="Ingrédients..." value={form.ing} onChange={e => setForm({...form, ing: e.target.value})} className="w-full border p-3 rounded text-sm h-24 outline-none focus:border-[#B29071] resize-none" />
+                <p className="text-[9px] text-gray-400 italic px-1">Composants du produit (liste INCI)</p>
+            </div>
 
             <div className="flex justify-end gap-3">
               {isEditing && (
-                <button type="button" onClick={() => {setIsEditing(false); setForm({name:"", price:"", format:"", desc:"", ing:"", cat:"", img:"", isOffer: false, isGift: false, isVisage: false, isCorps: false, isCheveux: false, isSpecial: false})}} className="px-6 py-3 text-xs font-bold uppercase text-gray-400">Annuler</button>
+                <button type="button" onClick={() => {setIsEditing(false); setForm({name:"", price:"", stock:"0", format:"", desc:"", ing:"", cat:"", img:"", isOffer: false, isGift: false, isVisage: false, isCorps: false, isCheveux: false, isSpecial: false})}} className="px-6 py-3 text-xs font-bold uppercase text-gray-400">Annuler</button>
               )}
               <button type="submit" disabled={loading || uploading} className="bg-black text-white px-10 py-3 rounded text-xs font-bold uppercase tracking-widest hover:bg-[#B29071] transition disabled:opacity-50">
                 {loading ? <Loader2 className="w-4 h-4 animate-spin mx-auto"/> : "Enregistrer"}
@@ -289,10 +322,11 @@ export default function InventoryPage() {
         {/* CATEGORÍAS */}
         <div className="bg-white p-8 rounded-xl shadow-sm border border-gray-100 h-fit">
           <h3 className="text-xs font-bold uppercase tracking-widest text-[#B29071] mb-6 flex items-center gap-2"><Tag className="w-4 h-4" /> Catégories</h3>
-          <div className="flex gap-2 mb-6">
+          <div className="flex gap-2 mb-2">
             <input type="text" placeholder="Nom" value={newCatName} onChange={e => setNewCatName(e.target.value)} className="flex-1 border p-2 rounded text-sm outline-none focus:border-[#B29071]" />
             <button onClick={handleSaveCategory} className="bg-black text-white p-2 rounded hover:bg-[#B29071] transition">{isEditingCat ? <CheckCircle2 className="w-5 h-5"/> : <Plus className="w-5 h-5"/>}</button>
           </div>
+          <p className="text-[9px] text-gray-400 italic px-1 mb-6">Ex: Crèmes, Sérums...</p>
           <div className="space-y-2">
             {categories.map(c => (
               <div key={c.id} className="text-xs bg-gray-50 p-3 rounded flex justify-between items-center group">
@@ -311,7 +345,7 @@ export default function InventoryPage() {
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mt-10">
         <table className="w-full text-left">
           <thead className="bg-gray-50 border-b font-bold text-[10px] uppercase text-gray-500">
-            <tr><th className="p-4">Produit</th><th className="p-4">Étiquettes</th><th className="p-4">Prix</th><th className="p-4 text-right">Actions</th></tr>
+            <tr><th className="p-4">Produit</th><th className="p-4">Étiquettes</th><th className="p-4 text-center">Stock</th><th className="p-4">Prix</th><th className="p-4 text-right">Actions</th></tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
             {products.map(p => (
@@ -330,12 +364,32 @@ export default function InventoryPage() {
                     {p.is_special && <span className="bg-yellow-50 text-yellow-700 text-[7px] font-bold px-1 py-0.5 rounded">SPÉCIAL</span>}
                   </div>
                 </td>
+                <td className="p-4 text-center">
+                  <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${p.stock > 0 ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
+                    {p.stock} un.
+                  </span>
+                </td>
                 <td className="p-4 font-bold text-[#B29071]">{p.price.toFixed(2)} DHS</td>
                 <td className="p-4 text-right">
                   <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100">
                     <button onClick={() => {
                       setIsEditing(true); setCurrentId(p.id);
-                      setForm({ name:p.name, price:p.price.toString(), format:p.format || "", desc:p.description || "", ing:p.ingredients || "", cat:p.category_id || "", img:p.image_url, isOffer: p.is_offer, isGift: p.is_gift, isVisage: p.is_visage, isCorps: p.is_corps, isCheveux: p.is_cheveux, isSpecial: p.is_special });
+                      setForm({ 
+                        name:p.name, 
+                        price:p.price.toString(), 
+                        stock:p.stock.toString(), // Pasar stock al formulario
+                        format:p.format || "", 
+                        desc:p.description || "", 
+                        ing:p.ingredients || "", 
+                        cat:p.category_id || "", 
+                        img:p.image_url, 
+                        isOffer: p.is_offer, 
+                        isGift: p.is_gift, 
+                        isVisage: p.is_visage, 
+                        isCorps: p.is_corps, 
+                        isCheveux: p.is_cheveux, 
+                        isSpecial: p.is_special 
+                      });
                       window.scrollTo({top: 0, behavior: 'smooth'});
                     }} className="text-gray-400 hover:text-[#B29071] p-2 hover:bg-gray-50 rounded-full"><Pencil className="w-4 h-4"/></button>
                     <button onClick={() => deleteProduct(p.id)} className="text-gray-400 hover:text-red-500 p-2 hover:bg-red-50 rounded-full"><Trash2 className="w-4 h-4"/></button>
