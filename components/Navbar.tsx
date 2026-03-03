@@ -36,13 +36,26 @@ export default function Navbar() {
         // 1. Verificar sesión de Appwrite
         const sessionUser = await account.get();
         if (sessionUser) {
-          setUser(sessionUser);
-          
-          // Verificar rol en la colección 'profiles'
-          const profile: any = await databases.getDocument(DATABASE_ID, 'profiles', sessionUser.$id);
-          const adminStatus = profile?.role === 'admin';
-          setIsAdmin(adminStatus);
-          localStorage.setItem('skineno_is_admin', String(adminStatus));
+          // IMPORTANTE: Diferenciamos usuario real de sesión anónima para evitar el "deja vu"
+          // Si no tiene email, es una sesión anónima (usada para el carrito)
+          if (sessionUser.email) {
+            setUser(sessionUser);
+            
+            // Verificar rol en la colección 'profiles' (solo si tiene sesión real)
+            try {
+              const profile: any = await databases.getDocument(DATABASE_ID, 'profiles', sessionUser.$id);
+              const adminStatus = profile?.role === 'admin';
+              setIsAdmin(adminStatus);
+              localStorage.setItem('skineno_is_admin', String(adminStatus));
+            } catch (profileErr) {
+              // Si falla el perfil, no es admin, pero sigue siendo usuario
+              setIsAdmin(false);
+            }
+          } else {
+            // Es sesión anónima, tratamos como "no logueado" para el menú
+            setUser(null);
+            setIsAdmin(false);
+          }
         }
       } catch (err) {
         setUser(null);
@@ -51,7 +64,7 @@ export default function Navbar() {
       }
 
       try {
-        // 2. Cargar textos dinámicos (Configuración)
+        // 2. Cargar textos dinámicos
         const storeConfig: any = await getStoreSettings();
         if (storeConfig) {
           setMenuText(storeConfig.dynamic_menu_text);
@@ -81,6 +94,7 @@ export default function Navbar() {
       localStorage.removeItem('skineno_is_admin');
       setUser(null);
       setIsAdmin(false);
+      setIsMobileMenuOpen(false);
       router.push("/");
       router.refresh();
     } catch (err) {
@@ -130,13 +144,15 @@ export default function Navbar() {
           </div>
 
           <div className="flex justify-end gap-4 md:gap-6 w-1/3 items-center text-[11px] uppercase font-medium text-black">
+            {/* ADMIN - SOLO ESCRITORIO */}
             {isAdmin && (
               <Link href="/admin" className="hidden lg:flex items-center gap-2 bg-[#B29071]/10 text-[#B29071] px-3 py-1.5 rounded-md border border-[#B29071]/20 font-bold hover:bg-[#B29071] hover:text-white transition-all">
                 <ShieldCheck className="w-4 h-4" /> <span className="text-[9px]">PANEL ADMIN</span>
               </Link>
             )}
             
-            <div className="flex items-center gap-4">
+            {/* CUENTA - SOLO ESCRITORIO */}
+            <div className="hidden lg:flex items-center gap-4">
               {user ? (
                 <>
                   <Link href="/compte"><User className="w-5 h-5 text-[#B29071]" /></Link>
@@ -147,6 +163,7 @@ export default function Navbar() {
               )}
             </div>
             
+            {/* FAVORITOS Y CARRITO - SIEMPRE VISIBLES */}
             <Link href="/favoris" className="relative">
               <Heart className={`w-5 h-5 ${wishlistCount > 0 ? "fill-[#B29071] text-[#B29071]" : ""}`} />
               {wishlistCount > 0 && (
@@ -215,6 +232,7 @@ export default function Navbar() {
               NOS OFFRES <ChevronRight className="w-3 h-3 text-gray-300" />
             </Link>
 
+            {/* SECCIÓN CUENTA Y ADMIN DENTRO DEL MENÚ MÓVIL */}
             <div className="pt-10 mt-auto space-y-4">
               {isAdmin && (
                 <Link href="/admin" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center gap-3 p-4 bg-[#B29071]/5 text-[#B29071] rounded-xl border border-[#B29071]/10 text-[11px] font-bold uppercase tracking-widest">
@@ -222,14 +240,19 @@ export default function Navbar() {
                 </Link>
               )}
               
-              {!user ? (
+              {user ? (
+                <>
+                  <Link href="/compte" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center gap-3 p-4 bg-gray-50 text-black rounded-xl text-[11px] font-bold uppercase tracking-widest">
+                    <User className="w-5 h-5 text-[#B29071]" /> Mon Compte
+                  </Link>
+                  <button onClick={handleLogout} className="w-full flex items-center gap-3 p-4 text-red-400 text-[11px] font-bold uppercase tracking-widest">
+                    <LogOut className="w-5 h-5" /> Déconnexion
+                  </button>
+                </>
+              ) : (
                 <Link href="/login" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center gap-3 p-4 text-gray-500 text-[11px] font-bold uppercase tracking-widest">
                   <User className="w-5 h-5" /> Se connecter
                 </Link>
-              ) : (
-                <button onClick={handleLogout} className="flex items-center gap-3 p-4 text-red-400 text-[11px] font-bold uppercase tracking-widest">
-                  <LogOut className="w-5 h-5" /> Déconnexion
-                </button>
               )}
             </div>
           </div>
