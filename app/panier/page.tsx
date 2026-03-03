@@ -78,9 +78,9 @@ export default function PanierPage() {
       {products.length === 0 ? (
         <div className="text-center py-20 bg-gray-50 rounded-2xl border-2 border-dashed border-gray-100">
           <ShoppingBag className="w-16 h-16 text-gray-200 mx-auto mb-4" />
-          <p className="text-gray-500 mb-6 italic">Votre panier est actuellement vide.</p>
+          <p className="text-gray-500 mb-6 italic">Votre panier est actualmente vide.</p>
           <Link href="/" className="bg-black text-white px-10 py-4 rounded text-xs font-bold uppercase tracking-widest hover:bg-[#B29071] transition">
-            Découvrir nos produits
+            Découvrir nos productos
           </Link>
         </div>
       ) : (
@@ -120,9 +120,13 @@ export default function PanierPage() {
                 <span className="font-bold text-[#B29071]">{total.toFixed(2)} DHS</span>
               </div>
             </div>
-            <button className="w-full bg-black text-white py-5 rounded text-xs font-bold uppercase tracking-widest hover:bg-[#B29071] transition flex items-center justify-center gap-3 shadow-lg">
+            {/* CAMBIO REALIZADO: Ahora es un Link que apunta a /checkout */}
+            <Link 
+              href="/checkout" 
+              className="w-full bg-black text-white py-5 rounded text-xs font-bold uppercase tracking-widest hover:bg-[#B29071] transition flex items-center justify-center gap-3 shadow-lg"
+            >
               Passer la commande <ArrowRight className="w-4 h-4" />
-            </button>
+            </Link>
           </div>
         </div>
       )}
