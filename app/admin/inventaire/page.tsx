@@ -14,7 +14,7 @@ import {
   Gift,
   Percent,
   Star,
-  Package // Icono para el stock
+  Package 
 } from "lucide-react";
 // MIGRACIÓN A APPWRITE
 import { databases, DATABASE_ID, storage } from "@/appwriteConfig";
@@ -24,7 +24,7 @@ interface Product {
   id: string; 
   name: string; 
   price: number; 
-  stock: number; // Nueva propiedad
+  stock: number; 
   image_url: string;
   description: string; 
   format: string; 
@@ -51,7 +51,7 @@ export default function InventoryPage() {
   const [currentId, setCurrentId] = useState<string | null>(null);
   
   const [form, setForm] = useState({ 
-    name: "", price: "", stock: "0", format: "", desc: "", ing: "", cat: "", img: "",
+    name: "", price: "", format: "", desc: "", ing: "", cat: "", img: "",
     isOffer: false, isGift: false, isVisage: false, isCorps: false, isCheveux: false, isSpecial: false 
   });
   
@@ -77,7 +77,7 @@ export default function InventoryPage() {
         id: d.$id,
         name: d.name,
         price: d.price,
-        stock: d.stock || 0, // Mapeo del stock
+        stock: d.stock || 0,
         image_url: d.image_url,
         description: d.description,
         format: d.format,
@@ -135,7 +135,6 @@ export default function InventoryPage() {
       if (!file) return;
 
       const res = await storage.createFile(BUCKET_ID, ID.unique(), file);
-      // Construcción de URL pública
       const url = `${process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT}/storage/buckets/${BUCKET_ID}/files/${res.$id}/view?project=${process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID}`;
       
       setForm({ ...form, img: url });
@@ -151,10 +150,9 @@ export default function InventoryPage() {
     e.preventDefault();
     setLoading(true);
 
-    const data = {
+    const data: any = {
       name: form.name, 
       price: parseFloat(form.price), 
-      stock: parseInt(form.stock), // Guardar stock como entero
       image_url: form.img || null, 
       description: form.desc, 
       format: form.format, 
@@ -168,14 +166,16 @@ export default function InventoryPage() {
       is_special: form.isSpecial
     };
 
+    // Al crear nuevo, inicializamos stock a 0 si no existe
+    if (!isEditing) data.stock = 0;
+
     try {
       if (isEditing && currentId) {
         await databases.updateDocument(DATABASE_ID, 'products', currentId, data);
       } else {
         await databases.createDocument(DATABASE_ID, 'products', ID.unique(), data);
       }
-      // Resetear formulario con stock en 0
-      setForm({ name: "", price: "", stock: "0", format: "", desc: "", ing: "", cat: "", img: "", isOffer: false, isGift: false, isVisage: false, isCorps: false, isCheveux: false, isSpecial: false });
+      setForm({ name: "", price: "", format: "", desc: "", ing: "", cat: "", img: "", isOffer: false, isGift: false, isVisage: false, isCorps: false, isCheveux: false, isSpecial: false });
       setIsEditing(false);
       fetchData();
       notify("Produit enregistré !", "success");
@@ -209,8 +209,8 @@ export default function InventoryPage() {
       )}
 
       <div className="border-b pb-4">
-        <h2 className="text-3xl font-serif text-black">Inventaire & Stock</h2>
-        <p className="text-sm text-gray-500">Gérez vos produits et vos catégories.</p>
+        <h2 className="text-3xl font-serif text-black">Catalogue Produits</h2>
+        <p className="text-sm text-gray-500">Gérez les fiches descriptives de vos rituels.</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -218,7 +218,7 @@ export default function InventoryPage() {
         <div className="lg:col-span-2 bg-white p-8 rounded-xl shadow-sm border border-gray-100">
           <h3 className="text-xs font-bold uppercase tracking-widest text-[#B29071] mb-6 flex items-center gap-2">
             {isEditing ? <Pencil className="w-4 h-4"/> : <Plus className="w-4 h-4"/>} 
-            {isEditing ? "Modifier le produit" : "Ajouter un producto"}
+            {isEditing ? "Modifier le produit" : "Ajouter un produit"}
           </h3>
           
           <form onSubmit={handleSaveProduct} className="space-y-6">
@@ -227,15 +227,9 @@ export default function InventoryPage() {
                 <input type="text" placeholder="Nom" value={form.name} onChange={e => setForm({...form, name: e.target.value})} className="w-full border p-3 rounded text-sm outline-none focus:border-[#B29071]" required />
                 <p className="text-[9px] text-gray-400 italic px-1">Ex: Huile d'Argan Pure</p>
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1">
-                    <input type="number" step="0.01" placeholder="Prix (DHS)" value={form.price} onChange={e => setForm({...form, price: e.target.value})} className="w-full border p-3 rounded text-sm outline-none focus:border-[#B29071]" required />
-                    <p className="text-[9px] text-gray-400 italic px-1">En Dirhams</p>
-                </div>
-                <div className="space-y-1">
-                    <input type="number" placeholder="Stock" value={form.stock} onChange={e => setForm({...form, stock: e.target.value})} className="w-full border p-3 rounded text-sm outline-none focus:border-[#B29071]" required />
-                    <p className="text-[9px] text-gray-400 italic px-1">Quantité dispo.</p>
-                </div>
+              <div className="space-y-1">
+                  <input type="number" step="0.01" placeholder="Prix (DHS)" value={form.price} onChange={e => setForm({...form, price: e.target.value})} className="w-full border p-3 rounded text-sm outline-none focus:border-[#B29071]" required />
+                  <p className="text-[9px] text-gray-400 italic px-1">Prix de vente en Dirhams</p>
               </div>
             </div>
 
@@ -250,7 +244,7 @@ export default function InventoryPage() {
                     <option value="">Catégorie</option>
                     {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
-                <p className="text-[9px] text-gray-400 italic px-1">Groupe du produit</p>
+                <p className="text-[9px] text-gray-400 italic px-1">Groupe d'affichage</p>
               </div>
             </div>
 
@@ -261,14 +255,13 @@ export default function InventoryPage() {
                     <span className="text-gray-500 truncate">{form.img ? "Image chargée ✓" : "Charger una photo"}</span>
                     <input type="file" accept="image/*" onChange={handleFileUpload} className="hidden" />
                 </label>
-                <p className="text-[9px] text-gray-400 italic px-1 text-center">Format suggéré: 4:5 (Portrait)</p>
+                <p className="text-[9px] text-gray-400 italic px-1 text-center">Recommandé : Fond blanc, format 4:5</p>
               </div>
             </div>
 
             <div className="space-y-4">
               <div className="flex justify-between items-end">
-                <label className="text-[10px] font-bold uppercase text-gray-400 tracking-widest">Tags & Visibilité</label>
-                <p className="text-[9px] text-gray-400 italic">Définit les filtres et badges</p>
+                <label className="text-[10px] font-bold uppercase text-gray-400 tracking-widest">Filtres boutique & Badges</label>
               </div>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4 p-4 bg-gray-50 rounded-lg border border-gray-100">
                 <label className="flex items-center gap-3 cursor-pointer group">
@@ -301,16 +294,16 @@ export default function InventoryPage() {
 
             <div className="space-y-1">
                 <textarea placeholder="Description..." value={form.desc} onChange={e => setForm({...form, desc: e.target.value})} className="w-full border p-3 rounded text-sm h-24 outline-none focus:border-[#B29071] resize-none" />
-                <p className="text-[9px] text-gray-400 italic px-1">Texte de présentation commerciale</p>
+                <p className="text-[9px] text-gray-400 italic px-1">Présentation détaillée pour le client</p>
             </div>
             <div className="space-y-1">
                 <textarea placeholder="Ingrédients..." value={form.ing} onChange={e => setForm({...form, ing: e.target.value})} className="w-full border p-3 rounded text-sm h-24 outline-none focus:border-[#B29071] resize-none" />
-                <p className="text-[9px] text-gray-400 italic px-1">Composants du produit (liste INCI)</p>
+                <p className="text-[9px] text-gray-400 italic px-1">Liste des composants (norme INCI)</p>
             </div>
 
             <div className="flex justify-end gap-3">
               {isEditing && (
-                <button type="button" onClick={() => {setIsEditing(false); setForm({name:"", price:"", stock:"0", format:"", desc:"", ing:"", cat:"", img:"", isOffer: false, isGift: false, isVisage: false, isCorps: false, isCheveux: false, isSpecial: false})}} className="px-6 py-3 text-xs font-bold uppercase text-gray-400">Annuler</button>
+                <button type="button" onClick={() => {setIsEditing(false); setForm({name:"", price:"", format:"", desc:"", ing:"", cat:"", img:"", isOffer: false, isGift: false, isVisage: false, isCorps: false, isCheveux: false, isSpecial: false})}} className="px-6 py-3 text-xs font-bold uppercase text-gray-400">Annuler</button>
               )}
               <button type="submit" disabled={loading || uploading} className="bg-black text-white px-10 py-3 rounded text-xs font-bold uppercase tracking-widest hover:bg-[#B29071] transition disabled:opacity-50">
                 {loading ? <Loader2 className="w-4 h-4 animate-spin mx-auto"/> : "Enregistrer"}
@@ -345,7 +338,7 @@ export default function InventoryPage() {
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mt-10">
         <table className="w-full text-left">
           <thead className="bg-gray-50 border-b font-bold text-[10px] uppercase text-gray-500">
-            <tr><th className="p-4">Produit</th><th className="p-4">Étiquettes</th><th className="p-4 text-center">Stock</th><th className="p-4">Prix</th><th className="p-4 text-right">Actions</th></tr>
+            <tr><th className="p-4">Produit</th><th className="p-4">Étiquettes</th><th className="p-4 text-center">Stock Actuel</th><th className="p-4">Prix</th><th className="p-4 text-right">Actions</th></tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
             {products.map(p => (
@@ -377,7 +370,6 @@ export default function InventoryPage() {
                       setForm({ 
                         name:p.name, 
                         price:p.price.toString(), 
-                        stock:p.stock.toString(), // Pasar stock al formulario
                         format:p.format || "", 
                         desc:p.description || "", 
                         ing:p.ingredients || "", 

@@ -35,18 +35,19 @@ export default function RegisterPage() {
 
     setLoading(true);
     try {
-      // crear usuario en Appwrite con un ID único
+      // 1. Crear usuario en Auth
       const user = await account.create(ID.unique(), email, password, fullName);
 
-      // crear documento de perfil paralelo
+      // 2. Crear documento de perfil (Añadido el campo email)
       await databases.createDocument(DATABASE_ID, 'profiles', user.$id, {
         full_name: fullName,
+        email: email, // <--- GUARDAMOS EL EMAIL AQUÍ
         phone,
         address,
         city,
       });
 
-      // iniciar sesión automáticamente
+      // 3. Iniciar sesión automáticamente
       await account.createEmailPasswordSession(email, password);
       router.push("/");
       router.refresh();
@@ -130,7 +131,7 @@ export default function RegisterPage() {
             <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Adresse</label>
             <input
               type="text"
-              placeholder="Rue, numéro, etc."
+              placeholder="Rue, número, etc."
               className="w-full border-b border-gray-200 py-3 outline-none focus:border-[#B29071] text-sm bg-transparent transition-colors"
               onChange={(e) => setAddress(e.target.value)}
             />

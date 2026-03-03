@@ -1,16 +1,23 @@
 "use client";
 
 import Link from "next/link";
-import { ShoppingBag, Image as ImageIcon, Settings, Share2, ArrowRight } from "lucide-react";
+import { ShoppingBag, Image as ImageIcon, Settings, Share2, ArrowRight, CreditCard, Package } from "lucide-react";
 
 export default function AdminDashboard() {
-  const cards =[
+  const cards = [
     { 
       title: "Inventaire", 
       desc: "Gérez les produits et le stock", 
       href: "/admin/inventaire", 
       icon: ShoppingBag,
       color: "bg-blue-500"
+    },
+    { 
+      title: "Commandes", 
+      desc: "Suivi des ventes et livraisons", 
+      href: "/admin/commandes", 
+      icon: CreditCard,
+      color: "bg-rose-500"
     },
     { 
       title: "Diaporama", 
@@ -29,9 +36,23 @@ export default function AdminDashboard() {
     { 
       title: "Paramètres", 
       desc: "Menu dynamique et messages promotionnels", 
-      href: "/admin/configuration", // IMPORTANTE: Ahora apunta a la nueva carpeta
+      href: "/admin/configuration", 
       icon: Settings,
       color: "bg-orange-500"
+    },
+        { 
+      title: "Catalogue Produits", 
+      desc: "Gérez les textes, images et catégories", 
+      href: "/admin/produits", 
+      icon: ShoppingBag,
+      color: "bg-blue-500"
+    },
+    { 
+      title: "Gestion du Stock", 
+      desc: "Mise à jour rapide des quantités", 
+      href: "/admin/stock", 
+      icon: Package,
+      color: "bg-emerald-500"
     },
   ];
 
@@ -42,7 +63,8 @@ export default function AdminDashboard() {
         <p className="text-sm text-gray-500 mt-2">Sélectionnez une section pour commencer</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      {/* Ajustado a grid-cols-5 para pantallas grandes para que quepan las 5 tarjetas en linea si hay espacio */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
         {cards.map((card, index) => {
           const Icon = card.icon;
           return (

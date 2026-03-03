@@ -15,6 +15,7 @@ interface Product {
   id: string; // En Appwrite los IDs son strings ($id)
   name: string; 
   price: number; 
+  stock: number; // NUEVO: Propiedad de stock
   image_url: string;
   description: string; 
   format: string; 
@@ -41,6 +42,7 @@ export default function ProductPage() {
             id: doc.$id,
             name: doc.name,
             price: Number(doc.price),
+            stock: Number(doc.stock || 0), // NUEVO: Mapeo del stock desde Appwrite
             image_url: doc.image_url,
             description: doc.description,
             format: doc.format,
@@ -115,11 +117,17 @@ export default function ProductPage() {
             <p className="text-[#B29071] font-bold text-xl tracking-widest">
               {Number(product.price).toFixed(2)} DHS
             </p>
-            {product.format && (
-              <span className="inline-block mt-4 px-3 py-1 bg-gray-100 text-[10px] font-bold uppercase tracking-widest rounded">
-                Format: {product.format}
+            <div className="flex flex-wrap gap-3 mt-4">
+              {product.format && (
+                <span className="inline-block px-3 py-1 bg-gray-100 text-[10px] font-bold uppercase tracking-widest rounded">
+                  Format: {product.format}
+                </span>
+              )}
+              {/* INDICADOR DE STOCK VISUAL */}
+              <span className={`inline-block px-3 py-1 text-[10px] font-bold uppercase tracking-widest rounded ${product.stock > 0 ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
+                {product.stock > 0 ? `En stock: ${product.stock}` : 'En rupture'}
               </span>
-            )}
+            </div>
           </div>
 
           <div className="space-y-4 border-t border-gray-100 pt-8">
@@ -139,13 +147,15 @@ export default function ProductPage() {
               <button 
                 onClick={() => setQuantity(Math.max(1, quantity - 1))} 
                 className="p-2 hover:text-[#B29071] transition-colors"
+                disabled={product.stock <= 0}
               >
                 <Minus className="w-4 h-4" />
               </button>
               <span className="w-12 text-center font-bold">{quantity}</span>
               <button 
                 onClick={() => setQuantity(quantity + 1)} 
-                className="p-2 hover:text-[#B29071] transition-colors"
+                className="p-2 hover:text-[#B29071] transition-colors disabled:opacity-20"
+                disabled={quantity >= product.stock} // BLOQUEO: No deja elegir más que el stock
               >
                 <Plus className="w-4 h-4" />
               </button>
@@ -153,9 +163,15 @@ export default function ProductPage() {
 
             <button 
               onClick={handleAddToCart} 
-              className="flex-1 bg-black text-white py-4 rounded-full text-xs font-bold uppercase tracking-widest hover:bg-[#B29071] transition-all flex items-center justify-center gap-3 shadow-lg"
+              disabled={product.stock <= 0} // BLOQUEO: Desactivado si stock es 0
+              className={`flex-1 py-4 rounded-full text-xs font-bold uppercase tracking-widest transition-all flex items-center justify-center gap-3 shadow-lg ${
+                product.stock <= 0 
+                ? "bg-gray-100 text-gray-400 cursor-not-allowed" 
+                : "bg-black text-white hover:bg-[#B29071]"
+              }`}
             >
-              <ShoppingBag className="w-4 h-4" /> Ajouter au panier
+              <ShoppingBag className="w-4 h-4" /> 
+              {product.stock <= 0 ? "Rupture de stock" : "Ajouter au panier"}
             </button>
 
             <button 
