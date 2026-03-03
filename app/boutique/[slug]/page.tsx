@@ -2,16 +2,17 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import { databases, DATABASE_ID } from "@/appwriteConfig"; // Cambiado a Appwrite
+import { databases, DATABASE_ID } from "@/appwriteConfig"; 
 import { Query } from "appwrite";
 import Navbar from "@/components/Navbar";
-import { Loader2, Heart, ShoppingBag, ChevronRight } from "lucide-react";
+import { Loader2, Heart, ShoppingBag, ChevronRight, CheckCircle2 } from "lucide-react";
 import Link from "next/link";
+// IMPORTANTE: Asegurar que apunte a la carpeta lib
 import { useCart } from "@/lib/CartContext";
 import { useWishlist } from "@/lib/WishlistContext";
 
 interface Product {
-  id: string; // Appwrite usa strings para IDs ($id)
+  id: string; // ID del documento ($id)
   name: string;
   price: number;
   image_url: string;
@@ -22,6 +23,7 @@ export default function CategoryPage() {
   const { slug } = useParams();
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  const [addedNotify, setAddedNotify] = useState(false);
   
   const { addToCart } = useCart();
   const { toggleWishlist, isInWishlist } = useWishlist();
@@ -40,7 +42,6 @@ export default function CategoryPage() {
         else if (currentSlug === "cheveux") columnToFilter = "is_cheveux";
 
         if (columnToFilter) {
-          // Consulta a Appwrite
           const response = await databases.listDocuments(
             DATABASE_ID, 
             'products', 
@@ -54,7 +55,7 @@ export default function CategoryPage() {
             const formatted = response.documents.map((doc: any) => ({
               id: doc.$id,
               name: doc.name,
-              price: doc.price,
+              price: Number(doc.price),
               image_url: doc.image_url,
               format: doc.format
             }));
@@ -71,14 +72,34 @@ export default function CategoryPage() {
     return () => { isMounted = false; };
   }, [slug]);
 
+  // Función corregida para añadir al carrito
+  const handleQuickAdd = async (productId: string) => {
+    try {
+      await addToCart(productId, 1);
+      setAddedNotify(true);
+      setTimeout(() => setAddedNotify(false), 2000);
+    } catch (error) {
+      console.error("Error quick add:", error);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#FDFBF7] text-black font-sans">
+      
+      {/* Notificación de añadido */}
+      {addedNotify && (
+        <div className="fixed top-24 right-6 z-50 bg-black text-white px-6 py-4 rounded-xl shadow-2xl flex items-center gap-3 animate-fade-in-up border border-white/10">
+          <CheckCircle2 className="w-5 h-5 text-[#B29071]" />
+          <span className="text-[10px] font-bold uppercase tracking-widest">Ajouté au panier !</span>
+        </div>
+      )}
+
       <header className="py-16 md:py-24 px-6 text-center bg-white border-b border-gray-100">
         <div className="max-w-3xl mx-auto uppercase">
           <div className="flex justify-center items-center gap-2 text-[10px] tracking-[0.3em] text-[#B29071] mb-4 font-bold">
-            <Link href="/boutique">Boutique</Link>
+            <Link href="/" className="hover:opacity-70 transition-opacity">Accueil</Link>
             <ChevronRight className="w-3 h-3" />
-            <span>{slug}</span>
+            <span className="opacity-50">{slug}</span>
           </div>
           <h1 className="text-4xl md:text-5xl font-serif mb-6 tracking-tight">{slug}</h1>
           <p className="text-sm text-gray-500 font-light leading-relaxed tracking-[0.2em]">
@@ -101,10 +122,22 @@ export default function CategoryPage() {
                     <img src={product.image_url || "/img/img1.jpg"} alt={product.name} className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110" />
                   </Link>
                   <div className="absolute bottom-4 left-4 right-4 flex gap-2 translate-y-12 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-500">
-                    <button onClick={() => addToCart(product as any, 1)} className="flex-1 bg-black text-white py-3 rounded-full text-[9px] font-bold uppercase tracking-widest hover:bg-[#B29071] transition-colors flex items-center justify-center gap-2">
+                    {/* CORRECCIÓN: Enviamos solo el ID string */}
+                    <button 
+                      onClick={() => handleQuickAdd(product.id)} 
+                      className="flex-1 bg-black text-white py-3 rounded-full text-[9px] font-bold uppercase tracking-widest hover:bg-[#B29071] transition-colors flex items-center justify-center gap-2"
+                    >
                       <ShoppingBag className="w-3 h-3" /> Ajouter
                     </button>
-                    <button onClick={() => toggleWishlist(product as any)} className={`p-3 rounded-full border transition-all ${isInWishlist(product.id) ? "bg-[#B29071] border-[#B29071] text-white" : "bg-white/80 backdrop-blur-sm border-transparent text-black hover:bg-white"}`}>
+                    <button 
+                      onClick={() => toggleWishlist({
+                        $id: product.id,
+                        name: product.name,
+                        price: product.price,
+                        image_url: product.image_url
+                      } as any)} 
+                      className={`p-3 rounded-full border transition-all ${isInWishlist(product.id) ? "bg-[#B29071] border-[#B29071] text-white" : "bg-white/80 backdrop-blur-sm border-transparent text-black hover:bg-white"}`}
+                    >
                       <Heart className={`w-4 h-4 ${isInWishlist(product.id) ? "fill-current" : ""}`} />
                     </button>
                   </div>

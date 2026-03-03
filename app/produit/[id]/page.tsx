@@ -7,6 +7,7 @@ import { databases, DATABASE_ID } from "@/appwriteConfig";
 import Navbar from "@/components/Navbar";
 import { Loader2, Minus, Plus, ShoppingBag, ChevronRight, CheckCircle2, Heart } from "lucide-react";
 import Link from "next/link";
+// IMPORTANTE: Asegúrate de que esta ruta sea la correcta (@/lib/CartContext)
 import { useCart } from "@/lib/CartContext";
 import { useWishlist } from "@/lib/WishlistContext";
 
@@ -39,7 +40,7 @@ export default function ProductPage() {
           setProduct({
             id: doc.$id,
             name: doc.name,
-            price: doc.price,
+            price: Number(doc.price),
             image_url: doc.image_url,
             description: doc.description,
             format: doc.format,
@@ -56,11 +57,18 @@ export default function ProductPage() {
     if (id) fetchProduct();
   }, [id]);
 
-  const handleAddToCart = () => {
+  const handleAddToCart = async () => {
     if (product) {
-      addToCart(product, quantity);
-      setAddedNotify(true);
-      setTimeout(() => setAddedNotify(false), 3000);
+      try {
+        // AJUSTE: Enviamos solo el ID como string y la cantidad como número
+        // Usamos String() para asegurar que nunca se envíe un objeto por error
+        await addToCart(String(product.id), Number(quantity));
+        
+        setAddedNotify(true);
+        setTimeout(() => setAddedNotify(false), 3000);
+      } catch (error) {
+        console.error("Error al añadir al carrito:", error);
+      }
     }
   };
 
@@ -151,7 +159,12 @@ export default function ProductPage() {
             </button>
 
             <button 
-              onClick={() => toggleWishlist(product)}
+              onClick={() => toggleWishlist({
+                $id: product.id,
+                name: product.name,
+                price: product.price,
+                image_url: product.image_url
+              } as any)}
               className={`p-4 rounded-full border transition-all ${isInWishlist(product.id) ? "bg-[#B29071]/10 border-[#B29071] text-[#B29071]" : "border-gray-200 text-gray-400 hover:border-black hover:text-black"}`}
             >
               <Heart className={`w-5 h-5 ${isInWishlist(product.id) ? "fill-current" : ""}`} />

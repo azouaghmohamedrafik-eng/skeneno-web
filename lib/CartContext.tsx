@@ -1,77 +1,102 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect } from "react";
+import { databases, DATABASE_ID, account } from "@/appwriteConfig";
+import { ID, Query } from "appwrite";
 
-// Definimos qué datos tiene un producto en el carrito
 interface CartItem {
-  id: number;
-  name: string;
-  price: number;
-  image_url: string;
+  $id?: string;
+  product_id: string;
   quantity: number;
+  user_id: string;
 }
 
 interface CartContextType {
   cart: CartItem[];
-  addToCart: (product: any, quantity: number) => void;
-  removeFromCart: (id: number) => void;
-  clearCart: () => void;
+  addToCart: (productId: string, qty: number) => Promise<void>; // Añadido qty
+  removeFromCart: (cartDocId: string) => Promise<void>;
   cartCount: number;
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
-export function CartProvider({ children }: { children: React.ReactNode }) {
+export const CartProvider = ({ children }: { children: React.ReactNode }) => {
   const [cart, setCart] = useState<CartItem[]>([]);
+  const [userId, setUserId] = useState<string | null>(null);
 
-  // Cargar el carrito desde la memoria del navegador al abrir la web
   useEffect(() => {
-    const savedCart = localStorage.getItem('skeneno_cart');
-    if (savedCart) setCart(JSON.parse(savedCart));
+    async function initCart() {
+      try {
+        let currentUser;
+        try {
+          currentUser = await account.get();
+        } catch {
+          currentUser = await account.createAnonymousSession();
+        }
+        setUserId(currentUser.$id);
+
+        const res = await databases.listDocuments(DATABASE_ID, "cart", [
+          Query.equal("user_id", currentUser.$id)
+        ]);
+        
+        setCart(res.documents.map(doc => ({
+          $id: doc.$id,
+          product_id: doc.product_id,
+          quantity: doc.quantity,
+          user_id: doc.user_id
+        })));
+      } catch (error) {
+        console.error("Error init cart:", error);
+      }
+    }
+    initCart();
   }, []);
 
-  // Guardar el carrito automáticamente cuando cambie
-  useEffect(() => {
-    localStorage.setItem('skeneno_cart', JSON.stringify(cart));
-  }, [cart]);
+  const addToCart = async (productId: string, qty: number) => {
+    if (!userId) return;
 
-  const addToCart = (product: any, quantity: number) => {
-    setCart(prevCart => {
-      const existingItem = prevCart.find(item => item.id === product.id);
-      if (existingItem) {
-        return prevCart.map(item =>
-          item.id === product.id 
-            ? { ...item, quantity: item.quantity + quantity } 
-            : item
-        );
+    try {
+      const existing = cart.find(item => item.product_id === productId);
+
+      if (existing && existing.$id) {
+        const newQty = existing.quantity + qty;
+        await databases.updateDocument(DATABASE_ID, "cart", existing.$id, {
+          quantity: newQty
+        });
+        setCart(cart.map(item => item.product_id === productId ? { ...item, quantity: newQty } : item));
+      } else {
+        const newDoc = await databases.createDocument(DATABASE_ID, "cart", ID.unique(), {
+          user_id: userId,
+          product_id: productId,
+          quantity: qty
+        });
+        setCart([...cart, { $id: newDoc.$id, product_id: productId, quantity: qty, user_id: userId }]);
       }
-      return [...prevCart, { 
-        id: product.id, 
-        name: product.name, 
-        price: product.price, 
-        image_url: product.image_url, 
-        quantity 
-      }];
-    });
+    } catch (error) {
+      console.error("Error adding to cart:", error);
+    }
   };
 
-  const removeFromCart = (id: number) => {
-    setCart(prevCart => prevCart.filter(item => item.id !== id));
+  const removeFromCart = async (cartDocId: string) => {
+    try {
+      await databases.deleteDocument(DATABASE_ID, "cart", cartDocId);
+      setCart(cart.filter(item => item.$id !== cartDocId));
+    } catch (error) {
+      console.error("Error removing:", error);
+    }
   };
-
-  const clearCart = () => setCart([]);
 
   const cartCount = cart.reduce((total, item) => total + item.quantity, 0);
 
   return (
-    <CartContext.Provider value={{ cart, addToCart, removeFromCart, clearCart, cartCount }}>
+    <CartContext.Provider value={{ cart, addToCart, removeFromCart, cartCount }}>
       {children}
     </CartContext.Provider>
   );
-}
+};
 
-export function useCart() {
+export const useCart = () => {
   const context = useContext(CartContext);
-  if (!context) throw new Error("useCart debe usarse dentro de un CartProvider");
+  if (!context) throw new Error("useCart must be used within a CartProvider");
   return context;
-}
+};
