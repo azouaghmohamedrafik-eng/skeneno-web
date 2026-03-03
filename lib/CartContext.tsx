@@ -13,7 +13,7 @@ interface CartItem {
 
 interface CartContextType {
   cart: CartItem[];
-  addToCart: (productId: string, qty: number) => Promise<void>; // Añadido qty
+  addToCart: (productId: string, qty: number) => Promise<void>;
   removeFromCart: (cartDocId: string) => Promise<void>;
   cartCount: number;
 }
@@ -27,12 +27,8 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     async function initCart() {
       try {
-        let currentUser;
-        try {
-          currentUser = await account.get();
-        } catch {
-          currentUser = await account.createAnonymousSession();
-        }
+        // Intentamos obtener el usuario real. Si no hay, no creamos sesión anónima.
+        const currentUser = await account.get();
         setUserId(currentUser.$id);
 
         const res = await databases.listDocuments(DATABASE_ID, "cart", [
@@ -46,14 +42,20 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
           user_id: doc.user_id
         })));
       } catch (error) {
-        console.error("Error init cart:", error);
+        // Si falla (no hay login), userId queda en null y el carrito vacío.
+        setUserId(null);
+        setCart([]);
       }
     }
     initCart();
   }, []);
 
   const addToCart = async (productId: string, qty: number) => {
-    if (!userId) return;
+    if (!userId) {
+      // Si quieres que el usuario deba estar logueado para añadir al carrito
+      alert("Veuillez vous connecter pour ajouter des produits au panier.");
+      return;
+    }
 
     try {
       const existing = cart.find(item => item.product_id === productId);

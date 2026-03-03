@@ -33,38 +33,33 @@ export default function Navbar() {
   useEffect(() => {
     async function initNavbar() {
       try {
-        // 1. Verificar sesión de Appwrite
-        const sessionUser = await account.get();
+        // 1. Verificar sesión de Appwrite (Silenciando el error fatal)
+        const sessionUser = await account.get().catch(() => null);
+        
         if (sessionUser) {
-          // IMPORTANTE: Diferenciamos usuario real de sesión anónima para evitar el "deja vu"
-          // Si no tiene email, es una sesión anónima (usada para el carrito)
-          if (sessionUser.email) {
-            setUser(sessionUser);
-            
-            // Verificar rol en la colección 'profiles' (solo si tiene sesión real)
-            try {
-              const profile: any = await databases.getDocument(DATABASE_ID, 'profiles', sessionUser.$id);
-              const adminStatus = profile?.role === 'admin';
-              setIsAdmin(adminStatus);
-              localStorage.setItem('skineno_is_admin', String(adminStatus));
-            } catch (profileErr) {
-              // Si falla el perfil, no es admin, pero sigue siendo usuario
-              setIsAdmin(false);
-            }
-          } else {
-            // Es sesión anónima, tratamos como "no logueado" para el menú
-            setUser(null);
+          setUser(sessionUser);
+          
+          // Verificar rol en la colección 'profiles'
+          try {
+            const profile: any = await databases.getDocument(DATABASE_ID, 'profiles', sessionUser.$id);
+            const adminStatus = profile?.role === 'admin';
+            setIsAdmin(adminStatus);
+            localStorage.setItem('skineno_is_admin', String(adminStatus));
+          } catch (profileErr) {
             setIsAdmin(false);
           }
+        } else {
+          setUser(null);
+          setIsAdmin(false);
+          localStorage.removeItem('skineno_is_admin');
         }
       } catch (err) {
         setUser(null);
         setIsAdmin(false);
-        localStorage.removeItem('skineno_is_admin');
       }
 
       try {
-        // 2. Cargar textos dinámicos
+        // 2. Cargar textos dinámicos (Configuración)
         const storeConfig: any = await getStoreSettings();
         if (storeConfig) {
           setMenuText(storeConfig.dynamic_menu_text);
@@ -144,14 +139,12 @@ export default function Navbar() {
           </div>
 
           <div className="flex justify-end gap-4 md:gap-6 w-1/3 items-center text-[11px] uppercase font-medium text-black">
-            {/* ADMIN - SOLO ESCRITORIO */}
             {isAdmin && (
               <Link href="/admin" className="hidden lg:flex items-center gap-2 bg-[#B29071]/10 text-[#B29071] px-3 py-1.5 rounded-md border border-[#B29071]/20 font-bold hover:bg-[#B29071] hover:text-white transition-all">
                 <ShieldCheck className="w-4 h-4" /> <span className="text-[9px]">PANEL ADMIN</span>
               </Link>
             )}
             
-            {/* CUENTA - SOLO ESCRITORIO */}
             <div className="hidden lg:flex items-center gap-4">
               {user ? (
                 <>
@@ -163,7 +156,6 @@ export default function Navbar() {
               )}
             </div>
             
-            {/* FAVORITOS Y CARRITO - SIEMPRE VISIBLES */}
             <Link href="/favoris" className="relative">
               <Heart className={`w-5 h-5 ${wishlistCount > 0 ? "fill-[#B29071] text-[#B29071]" : ""}`} />
               {wishlistCount > 0 && (
@@ -195,63 +187,62 @@ export default function Navbar() {
         </nav>
       </header>
 
-      {/* MENÚ MÓVIL */}
+      {/* MENÚ MÓVIL COMPLETO */}
       <div className={`fixed inset-0 bg-black/50 z-50 transition-opacity lg:hidden ${isMobileMenuOpen ? "opacity-100 visible" : "opacity-0 invisible"}`}>
-        <div className={`absolute top-0 left-0 w-[85%] max-w-[320px] h-full bg-white transform transition-transform duration-300 ease-out shadow-2xl ${isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"}`}>
+        <div className={`absolute top-0 left-0 w-[85%] max-w-[320px] h-full bg-white transform transition-transform duration-300 shadow-2xl ${isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"}`}>
           <div className="p-6 flex justify-between items-center border-b border-gray-100">
             <span className="font-serif text-lg tracking-widest text-[#B29071]">MENU</span>
-            <button onClick={() => setIsMobileMenuOpen(false)} className="p-2 hover:bg-gray-50 rounded-full transition-colors">
+            <button onClick={() => setIsMobileMenuOpen(false)} className="p-2">
               <X className="w-6 h-6 text-black" />
             </button>
           </div>
           
-          <div className="flex flex-col p-6 space-y-1 overflow-y-auto h-[calc(100vh-80px)]">
-            <Link href="/boutique" onClick={() => setIsMobileMenuOpen(false)} className="flex justify-between items-center py-4 text-[12px] font-bold uppercase tracking-[0.2em] border-b border-gray-50">
-              TOUS NOS PRODUITS <ChevronRight className="w-3 h-3 text-gray-300" />
+          <div className="flex flex-col p-6 space-y-2 overflow-y-auto">
+            <Link href="/boutique" onClick={() => setIsMobileMenuOpen(false)} className="flex justify-between items-center py-4 text-[12px] font-bold uppercase tracking-widest border-b border-gray-50">
+              TOUS NOS PRODUITS <ChevronRight className="w-4 h-4 text-gray-300" />
             </Link>
 
             {isLoaded && menuActive && (
-              <Link href="/selection" onClick={() => setIsMobileMenuOpen(false)} className="flex justify-between items-center py-4 text-[12px] font-bold uppercase tracking-[0.2em] text-[#B29071] border-b border-gray-50">
-                {menuText} <ChevronRight className="w-3 h-3 opacity-50" />
+              <Link href="/selection" onClick={() => setIsMobileMenuOpen(false)} className="flex justify-between items-center py-4 text-[12px] font-bold uppercase tracking-widest text-[#B29071] border-b border-gray-50">
+                {menuText} <ChevronRight className="w-4 h-4 opacity-50" />
               </Link>
             )}
 
-            <Link href="/boutique/Visage" onClick={() => setIsMobileMenuOpen(false)} className="flex justify-between items-center py-4 text-[12px] font-bold uppercase tracking-[0.2em] border-b border-gray-50">
-              VISAGE <ChevronRight className="w-3 h-3 text-gray-300" />
+            <Link href="/boutique/Visage" onClick={() => setIsMobileMenuOpen(false)} className="flex justify-between items-center py-4 text-[12px] font-bold uppercase tracking-widest border-b border-gray-50">
+              VISAGE <ChevronRight className="w-4 h-4 text-gray-300" />
             </Link>
 
-            <Link href="/boutique/Corps" onClick={() => setIsMobileMenuOpen(false)} className="flex justify-between items-center py-4 text-[12px] font-bold uppercase tracking-[0.2em] border-b border-gray-50">
-              CORPS <ChevronRight className="w-3 h-3 text-gray-300" />
+            <Link href="/boutique/Corps" onClick={() => setIsMobileMenuOpen(false)} className="flex justify-between items-center py-4 text-[12px] font-bold uppercase tracking-widest border-b border-gray-50">
+              CORPS <ChevronRight className="w-4 h-4 text-gray-300" />
             </Link>
 
-            <Link href="/boutique/Cheveux" onClick={() => setIsMobileMenuOpen(false)} className="flex justify-between items-center py-4 text-[12px] font-bold uppercase tracking-[0.2em] border-b border-gray-50">
-              CHEVEUX <ChevronRight className="w-3 h-3 text-gray-300" />
+            <Link href="/boutique/Cheveux" onClick={() => setIsMobileMenuOpen(false)} className="flex justify-between items-center py-4 text-[12px] font-bold uppercase tracking-widest border-b border-gray-50">
+              CHEVEUX <ChevronRight className="w-4 h-4 text-gray-300" />
             </Link>
 
-            <Link href="/offres" onClick={() => setIsMobileMenuOpen(false)} className="flex justify-between items-center py-4 text-[12px] font-bold uppercase tracking-[0.2em] border-b border-gray-50">
-              NOS OFFRES <ChevronRight className="w-3 h-3 text-gray-300" />
+            <Link href="/offres" onClick={() => setIsMobileMenuOpen(false)} className="flex justify-between items-center py-4 text-[12px] font-bold uppercase tracking-widest border-b border-gray-50">
+              NOS OFFRES <ChevronRight className="w-4 h-4 text-gray-300" />
             </Link>
 
-            {/* SECCIÓN CUENTA Y ADMIN DENTRO DEL MENÚ MÓVIL */}
-            <div className="pt-10 mt-auto space-y-4">
+            <div className="pt-10 space-y-4">
               {isAdmin && (
-                <Link href="/admin" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center gap-3 p-4 bg-[#B29071]/5 text-[#B29071] rounded-xl border border-[#B29071]/10 text-[11px] font-bold uppercase tracking-widest">
+                <Link href="/admin" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center gap-3 p-4 bg-[#B29071]/5 text-[#B29071] rounded-xl border border-[#B29071]/10 text-[11px] font-bold uppercase">
                   <ShieldCheck className="w-5 h-5" /> PANEL ADMIN
                 </Link>
               )}
               
               {user ? (
                 <>
-                  <Link href="/compte" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center gap-3 p-4 bg-gray-50 text-black rounded-xl text-[11px] font-bold uppercase tracking-widest">
-                    <User className="w-5 h-5 text-[#B29071]" /> Mon Compte
+                  <Link href="/compte" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center gap-3 p-4 bg-gray-50 text-black rounded-xl text-[11px] font-bold uppercase">
+                    <User className="w-5 h-5 text-[#B29071]" /> MON COMPTE
                   </Link>
-                  <button onClick={handleLogout} className="w-full flex items-center gap-3 p-4 text-red-400 text-[11px] font-bold uppercase tracking-widest">
-                    <LogOut className="w-5 h-5" /> Déconnexion
+                  <button onClick={handleLogout} className="w-full flex items-center gap-3 p-4 text-red-500 border border-red-50 rounded-xl text-[11px] font-bold uppercase">
+                    <LogOut className="w-5 h-5" /> SE DÉCONNECTER
                   </button>
                 </>
               ) : (
-                <Link href="/login" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center gap-3 p-4 text-gray-500 text-[11px] font-bold uppercase tracking-widest">
-                  <User className="w-5 h-5" /> Se connecter
+                <Link href="/login" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center gap-3 p-4 bg-black text-white rounded-xl text-[11px] font-bold uppercase text-center justify-center">
+                  SE CONNECTER
                 </Link>
               )}
             </div>
