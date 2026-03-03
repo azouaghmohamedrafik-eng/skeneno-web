@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ShoppingBag, User, Search, Heart, Menu, X, LogOut, ShieldCheck } from "lucide-react";
+import { ShoppingBag, User, Search, Heart, Menu, X, LogOut, ShieldCheck, ChevronRight } from "lucide-react";
 import { useEffect, useState } from "react";
 // Importamos Appwrite
 import { account, databases, DATABASE_ID } from "@/appwriteConfig";
@@ -45,14 +45,13 @@ export default function Navbar() {
           localStorage.setItem('skineno_is_admin', String(adminStatus));
         }
       } catch (err) {
-        // Si no hay sesión, account.get() lanza error, lo manejamos silenciosamente
         setUser(null);
         setIsAdmin(false);
         localStorage.removeItem('skineno_is_admin');
       }
 
       try {
-        // 2. Cargar textos dinámicos (Configuración) usando helper común
+        // 2. Cargar textos dinámicos (Configuración)
         const storeConfig: any = await getStoreSettings();
         if (storeConfig) {
           setMenuText(storeConfig.dynamic_menu_text);
@@ -74,7 +73,7 @@ export default function Navbar() {
     }
 
     initNavbar();
-  }, [pathname]); // Re-verificamos al cambiar de ruta
+  }, [pathname]);
 
   const handleLogout = async () => {
     try {
@@ -168,7 +167,7 @@ export default function Navbar() {
           </div>
         </div>
 
-        {/* NIVEL 3: MENÚ */}
+        {/* NIVEL 3: MENÚ ESCRITORIO */}
         <nav className="hidden lg:flex justify-center items-center gap-8 py-5 text-[12px] font-bold uppercase tracking-[0.2em] text-black/90 border-b border-gray-100">
           <Link href="/boutique" className="hover:text-[#B29071]">TOUS NOS PRODUITS</Link>
           {isLoaded && menuActive && <Link href="/selection" className="text-[#B29071]">{menuText}</Link>}
@@ -179,17 +178,60 @@ export default function Navbar() {
         </nav>
       </header>
 
-      {/* MENÚ MÓVIL (Simplificado para brevedad, misma lógica que el original) */}
+      {/* MENÚ MÓVIL */}
       <div className={`fixed inset-0 bg-black/50 z-50 transition-opacity lg:hidden ${isMobileMenuOpen ? "opacity-100 visible" : "opacity-0 invisible"}`}>
-        <div className={`absolute top-0 left-0 w-[80%] max-w-[300px] h-full bg-white transform transition-transform duration-300 ${isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"}`}>
-          <div className="p-6 flex justify-between border-b">
-            <span className="font-serif text-[#B29071]">MENU</span>
-            <button onClick={() => setIsMobileMenuOpen(false)}><X className="w-6 h-6" /></button>
+        <div className={`absolute top-0 left-0 w-[85%] max-w-[320px] h-full bg-white transform transition-transform duration-300 ease-out shadow-2xl ${isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"}`}>
+          <div className="p-6 flex justify-between items-center border-b border-gray-100">
+            <span className="font-serif text-lg tracking-widest text-[#B29071]">MENU</span>
+            <button onClick={() => setIsMobileMenuOpen(false)} className="p-2 hover:bg-gray-50 rounded-full transition-colors">
+              <X className="w-6 h-6 text-black" />
+            </button>
           </div>
-          <div className="flex flex-col p-6 space-y-6 text-sm font-bold uppercase tracking-widest">
-            <Link href="/boutique" onClick={() => setIsMobileMenuOpen(false)}>BOUTIQUE</Link>
-            {isAdmin && <Link href="/admin" className="text-[#B29071]">PANEL ADMIN</Link>}
-            {/* ... resto de links */}
+          
+          <div className="flex flex-col p-6 space-y-1 overflow-y-auto h-[calc(100vh-80px)]">
+            <Link href="/boutique" onClick={() => setIsMobileMenuOpen(false)} className="flex justify-between items-center py-4 text-[12px] font-bold uppercase tracking-[0.2em] border-b border-gray-50">
+              TOUS NOS PRODUITS <ChevronRight className="w-3 h-3 text-gray-300" />
+            </Link>
+
+            {isLoaded && menuActive && (
+              <Link href="/selection" onClick={() => setIsMobileMenuOpen(false)} className="flex justify-between items-center py-4 text-[12px] font-bold uppercase tracking-[0.2em] text-[#B29071] border-b border-gray-50">
+                {menuText} <ChevronRight className="w-3 h-3 opacity-50" />
+              </Link>
+            )}
+
+            <Link href="/boutique/Visage" onClick={() => setIsMobileMenuOpen(false)} className="flex justify-between items-center py-4 text-[12px] font-bold uppercase tracking-[0.2em] border-b border-gray-50">
+              VISAGE <ChevronRight className="w-3 h-3 text-gray-300" />
+            </Link>
+
+            <Link href="/boutique/Corps" onClick={() => setIsMobileMenuOpen(false)} className="flex justify-between items-center py-4 text-[12px] font-bold uppercase tracking-[0.2em] border-b border-gray-50">
+              CORPS <ChevronRight className="w-3 h-3 text-gray-300" />
+            </Link>
+
+            <Link href="/boutique/Cheveux" onClick={() => setIsMobileMenuOpen(false)} className="flex justify-between items-center py-4 text-[12px] font-bold uppercase tracking-[0.2em] border-b border-gray-50">
+              CHEVEUX <ChevronRight className="w-3 h-3 text-gray-300" />
+            </Link>
+
+            <Link href="/offres" onClick={() => setIsMobileMenuOpen(false)} className="flex justify-between items-center py-4 text-[12px] font-bold uppercase tracking-[0.2em] border-b border-gray-50">
+              NOS OFFRES <ChevronRight className="w-3 h-3 text-gray-300" />
+            </Link>
+
+            <div className="pt-10 mt-auto space-y-4">
+              {isAdmin && (
+                <Link href="/admin" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center gap-3 p-4 bg-[#B29071]/5 text-[#B29071] rounded-xl border border-[#B29071]/10 text-[11px] font-bold uppercase tracking-widest">
+                  <ShieldCheck className="w-5 h-5" /> PANEL ADMIN
+                </Link>
+              )}
+              
+              {!user ? (
+                <Link href="/login" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center gap-3 p-4 text-gray-500 text-[11px] font-bold uppercase tracking-widest">
+                  <User className="w-5 h-5" /> Se connecter
+                </Link>
+              ) : (
+                <button onClick={handleLogout} className="flex items-center gap-3 p-4 text-red-400 text-[11px] font-bold uppercase tracking-widest">
+                  <LogOut className="w-5 h-5" /> Déconnexion
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </div>
