@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
-// CORRECCIÓN: Añadidos Package y CreditCard al import
 import { 
   Loader2, 
   ShoppingBag, 
@@ -14,7 +13,9 @@ import {
   LayoutDashboard, 
   LogOut, 
   Package, 
-  CreditCard 
+  CreditCard,
+  Gift,
+  HelpCircle // Icono para la guía
 } from "lucide-react";
 import Link from "next/link";
 import { account, databases, DATABASE_ID } from "../../appwriteConfig";
@@ -49,12 +50,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }, [router]);
 
   const menuItems = [
-    { name: "Produits", href: "/admin/inventaire", icon: ShoppingBag }, // Gestión de contenido
-    { name: "Stock", href: "/admin/stock", icon: Package },             // Gestión de cantidades
+    { name: "Produits", href: "/admin/inventaire", icon: ShoppingBag }, 
+    { name: "Stock", href: "/admin/stock", icon: Package },             
     { name: "Commandes", href: "/admin/commandes", icon: CreditCard },
+    { name: "Packaging", href: "/admin/packaging", icon: Gift },
     { name: "Slider", href: "/admin/slider", icon: ImageIcon },
     { name: "Footer", href: "/admin/footer", icon: Share2 },
     { name: "Config", href: "/admin/configuration", icon: Settings },
+    { name: "Guide", href: "/admin/guide", icon: HelpCircle }, // NUEVA SECCIÓN
   ];
 
   if (loading) return (

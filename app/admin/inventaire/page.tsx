@@ -14,7 +14,8 @@ import {
   Gift,
   Percent,
   Star,
-  Package 
+  Package,
+  Sparkles // Nuevo icono para sugerencias
 } from "lucide-react";
 // MIGRACIÓN A APPWRITE
 import { databases, DATABASE_ID, storage } from "@/appwriteConfig";
@@ -36,6 +37,7 @@ interface Product {
   is_corps: boolean;     
   is_cheveux: boolean;   
   is_special: boolean; 
+  is_suggested: boolean; // NUEVO CAMPO
 }
 
 interface Category { 
@@ -52,7 +54,8 @@ export default function InventoryPage() {
   
   const [form, setForm] = useState({ 
     name: "", price: "", format: "", desc: "", ing: "", cat: "", img: "",
-    isOffer: false, isGift: false, isVisage: false, isCorps: false, isCheveux: false, isSpecial: false 
+    isOffer: false, isGift: false, isVisage: false, isCorps: false, isCheveux: false, isSpecial: false,
+    isSuggested: false // NUEVO ESTADO
   });
   
   const [uploading, setUploading] = useState(false);
@@ -88,7 +91,8 @@ export default function InventoryPage() {
         is_visage: d.is_visage,
         is_corps: d.is_corps,
         is_cheveux: d.is_cheveux,
-        is_special: d.is_special
+        is_special: d.is_special,
+        is_suggested: d.is_suggested || false // MAPEADO NUEVO
       })));
 
       setCategories(resC.documents.map(d => ({ id: d.$id, name: d.name })));
@@ -124,7 +128,7 @@ export default function InventoryPage() {
       await databases.deleteDocument(DATABASE_ID, 'categories', id);
       notify("Catégorie supprimée", "success");
       fetchData();
-    } catch (e) { notify("Erreur: La categoría est peut-être liée à des produits", "error"); }
+    } catch (e) { notify("Erreur: La categoría est peut-être liée à des productos", "error"); }
   };
 
   // --- PRODUCTOS ---
@@ -163,10 +167,10 @@ export default function InventoryPage() {
       is_visage: form.isVisage,   
       is_corps: form.isCorps,     
       is_cheveux: form.isCheveux,
-      is_special: form.isSpecial
+      is_special: form.isSpecial,
+      is_suggested: form.isSuggested // GUARDADO NUEVO
     };
 
-    // Al crear nuevo, inicializamos stock a 0 si no existe
     if (!isEditing) data.stock = 0;
 
     try {
@@ -175,7 +179,7 @@ export default function InventoryPage() {
       } else {
         await databases.createDocument(DATABASE_ID, 'products', ID.unique(), data);
       }
-      setForm({ name: "", price: "", format: "", desc: "", ing: "", cat: "", img: "", isOffer: false, isGift: false, isVisage: false, isCorps: false, isCheveux: false, isSpecial: false });
+      setForm({ name: "", price: "", format: "", desc: "", ing: "", cat: "", img: "", isOffer: false, isGift: false, isVisage: false, isCorps: false, isCheveux: false, isSpecial: false, isSuggested: false });
       setIsEditing(false);
       fetchData();
       notify("Produit enregistré !", "success");
@@ -185,6 +189,17 @@ export default function InventoryPage() {
       notify(msg, "error");
     }
     setLoading(false);
+  };
+
+  // FUNCIÓN RÁPIDA PARA CAMBIAR SUGERENCIA DESDE LA TABLA
+  const toggleSuggested = async (id: string, currentStatus: boolean) => {
+    try {
+      await databases.updateDocument(DATABASE_ID, 'products', id, { is_suggested: !currentStatus });
+      fetchData();
+      notify("Statut de suggestion mis à jour", "success");
+    } catch (error) {
+      notify("Erreur lors de la mise à jour", "error");
+    }
   };
 
   const deleteProduct = async (id: string) => {
@@ -218,7 +233,7 @@ export default function InventoryPage() {
         <div className="lg:col-span-2 bg-white p-8 rounded-xl shadow-sm border border-gray-100">
           <h3 className="text-xs font-bold uppercase tracking-widest text-[#B29071] mb-6 flex items-center gap-2">
             {isEditing ? <Pencil className="w-4 h-4"/> : <Plus className="w-4 h-4"/>} 
-            {isEditing ? "Modifier le produit" : "Ajouter un produit"}
+            {isEditing ? "Modifier le produit" : "Ajouter un producto"}
           </h3>
           
           <form onSubmit={handleSaveProduct} className="space-y-6">
@@ -263,7 +278,7 @@ export default function InventoryPage() {
               <div className="flex justify-between items-end">
                 <label className="text-[10px] font-bold uppercase text-gray-400 tracking-widest">Filtres boutique & Badges</label>
               </div>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4 p-4 bg-gray-50 rounded-lg border border-gray-100">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-gray-50 rounded-lg border border-gray-100">
                 <label className="flex items-center gap-3 cursor-pointer group">
                     <input type="checkbox" checked={form.isVisage} onChange={e => setForm({...form, isVisage: e.target.checked})} className="w-4 h-4 accent-[#B29071]" />
                     <span className="text-[11px] font-bold uppercase text-gray-600">Visage</span>
@@ -289,6 +304,12 @@ export default function InventoryPage() {
                   <input type="checkbox" checked={form.isSpecial} onChange={e => setForm({...form, isSpecial: e.target.checked})} className="w-4 h-4 accent-[#B29071]" />
                   <Star className="w-3 h-3 text-[#B29071]" /><span className="text-[11px] font-bold uppercase text-gray-600">Spécial</span>
                 </label>
+                
+                {/* NUEVO CHECKBOX SUGERENCIA */}
+                <label className="flex items-center gap-3 cursor-pointer group border-l pl-4 border-gray-200">
+                  <input type="checkbox" checked={form.isSuggested} onChange={e => setForm({...form, isSuggested: e.target.checked})} className="w-4 h-4 accent-black" />
+                  <Sparkles className="w-3 h-3 text-black" /><span className="text-[11px] font-bold uppercase text-black">Suggéré</span>
+                </label>
               </div>
             </div>
 
@@ -303,7 +324,7 @@ export default function InventoryPage() {
 
             <div className="flex justify-end gap-3">
               {isEditing && (
-                <button type="button" onClick={() => {setIsEditing(false); setForm({name:"", price:"", format:"", desc:"", ing:"", cat:"", img:"", isOffer: false, isGift: false, isVisage: false, isCorps: false, isCheveux: false, isSpecial: false})}} className="px-6 py-3 text-xs font-bold uppercase text-gray-400">Annuler</button>
+                <button type="button" onClick={() => {setIsEditing(false); setForm({name:"", price:"", format:"", desc:"", ing:"", cat:"", img:"", isOffer: false, isGift: false, isVisage: false, isCorps: false, isCheveux: false, isSpecial: false, isSuggested: false})}} className="px-6 py-3 text-xs font-bold uppercase text-gray-400">Annuler</button>
               )}
               <button type="submit" disabled={loading || uploading} className="bg-black text-white px-10 py-3 rounded text-xs font-bold uppercase tracking-widest hover:bg-[#B29071] transition disabled:opacity-50">
                 {loading ? <Loader2 className="w-4 h-4 animate-spin mx-auto"/> : "Enregistrer"}
@@ -338,7 +359,7 @@ export default function InventoryPage() {
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mt-10">
         <table className="w-full text-left">
           <thead className="bg-gray-50 border-b font-bold text-[10px] uppercase text-gray-500">
-            <tr><th className="p-4">Produit</th><th className="p-4">Étiquettes</th><th className="p-4 text-center">Stock Actuel</th><th className="p-4">Prix</th><th className="p-4 text-right">Actions</th></tr>
+            <tr><th className="p-4">Produit</th><th className="p-4">Étiquettes</th><th className="p-4 text-center">Suggéré</th><th className="p-4 text-center">Stock Actuel</th><th className="p-4">Prix</th><th className="p-4 text-right">Actions</th></tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
             {products.map(p => (
@@ -356,6 +377,12 @@ export default function InventoryPage() {
                     {p.is_offer && <span className="bg-orange-50 text-orange-600 text-[7px] font-bold px-1 py-0.5 rounded">OFFRE</span>}
                     {p.is_special && <span className="bg-yellow-50 text-yellow-700 text-[7px] font-bold px-1 py-0.5 rounded">SPÉCIAL</span>}
                   </div>
+                </td>
+                {/* NUEVA COLUMNA DE SUGERENCIA RÁPIDA */}
+                <td className="p-4 text-center">
+                  <button onClick={() => toggleSuggested(p.id, p.is_suggested)} className={`p-2 rounded-full transition-colors ${p.is_suggested ? 'bg-black text-white' : 'bg-gray-100 text-gray-300 hover:text-black'}`}>
+                    <Sparkles className="w-4 h-4" />
+                  </button>
                 </td>
                 <td className="p-4 text-center">
                   <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${p.stock > 0 ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
@@ -380,7 +407,8 @@ export default function InventoryPage() {
                         isVisage: p.is_visage, 
                         isCorps: p.is_corps, 
                         isCheveux: p.is_cheveux, 
-                        isSpecial: p.is_special 
+                        isSpecial: p.is_special,
+                        isSuggested: p.is_suggested // CARGA NUEVA
                       });
                       window.scrollTo({top: 0, behavior: 'smooth'});
                     }} className="text-gray-400 hover:text-[#B29071] p-2 hover:bg-gray-50 rounded-full"><Pencil className="w-4 h-4"/></button>

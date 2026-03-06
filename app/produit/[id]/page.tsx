@@ -6,6 +6,7 @@ import { useParams } from "next/navigation";
 import { databases, DATABASE_ID } from "@/appwriteConfig";
 import Navbar from "@/components/Navbar";
 import { Loader2, Minus, Plus, ShoppingBag, ChevronRight, CheckCircle2, Heart } from "lucide-react";
+// CORRECCIÓN: Link de next/link
 import Link from "next/link";
 // IMPORTANTE: Asegúrate de que esta ruta sea la correcta (@/lib/CartContext)
 import { useCart } from "@/lib/CartContext";
@@ -15,7 +16,7 @@ interface Product {
   id: string; // En Appwrite los IDs son strings ($id)
   name: string; 
   price: number; 
-  stock: number; // NUEVO: Propiedad de stock
+  stock: number; // Propiedad de stock
   image_url: string;
   description: string; 
   format: string; 
@@ -24,17 +25,38 @@ interface Product {
 
 export default function ProductPage() {
   const { id } = useParams();
-  const { addToCart } = useCart();
+  const { addToCart, cart } = useCart();
   const { toggleWishlist, isInWishlist } = useWishlist();
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
   const [quantity, setQuantity] = useState(1);
   const [addedNotify, setAddedNotify] = useState(false);
 
+  // --- LÓGICA DE CONTROL DE STOCK PROFESIONAL (SOLUCIÓN ENCONTRADA) ---
+  
+  // Buscamos el producto en el carrito usando 'product_id' que es como lo guarda tu CartContext
+  const cartItem = cart?.find((item: any) => String(item.product_id) === String(id));
+  
+  const quantityInCart = cartItem ? Number(cartItem.quantity) : 0;
+  const stockTotal = product ? Number(product.stock) : 0;
+  
+  // Cálculo real de lo que queda disponible para este usuario
+  const availableToAdd = Math.max(0, stockTotal - quantityInCart);
+
+  // Sincronización automática del selector
+  useEffect(() => {
+    if (availableToAdd <= 0) {
+      setQuantity(0);
+    } else if (quantity > availableToAdd) {
+      setQuantity(availableToAdd);
+    } else if (quantity === 0 && availableToAdd > 0) {
+      setQuantity(1);
+    }
+  }, [availableToAdd, quantity]);
+
   useEffect(() => {
     async function fetchProduct() {
       try {
-        // Obtenemos un único documento por su ID
         const doc: any = await databases.getDocument(DATABASE_ID, 'products', id as string);
         
         if (doc) {
@@ -42,7 +64,7 @@ export default function ProductPage() {
             id: doc.$id,
             name: doc.name,
             price: Number(doc.price),
-            stock: Number(doc.stock || 0), // NUEVO: Mapeo del stock desde Appwrite
+            stock: Number(doc.stock || 0),
             image_url: doc.image_url,
             description: doc.description,
             format: doc.format,
@@ -60,12 +82,9 @@ export default function ProductPage() {
   }, [id]);
 
   const handleAddToCart = async () => {
-    if (product) {
+    if (product && availableToAdd > 0 && quantity > 0) {
       try {
-        // AJUSTE: Enviamos solo el ID como string y la cantidad como número
-        // Usamos String() para asegurar que nunca se envíe un objeto por error
         await addToCart(String(product.id), Number(quantity));
-        
         setAddedNotify(true);
         setTimeout(() => setAddedNotify(false), 3000);
       } catch (error) {
@@ -89,6 +108,7 @@ export default function ProductPage() {
 
   return (
     <div className="min-h-screen bg-white text-black font-sans">
+      
       {addedNotify && (
         <div className="fixed top-24 right-6 z-50 bg-black text-white px-6 py-4 rounded-xl shadow-2xl flex items-center gap-3 animate-fade-in-up border border-white/10">
           <CheckCircle2 className="w-5 h-5 text-[#B29071]" />
@@ -123,10 +143,14 @@ export default function ProductPage() {
                   Format: {product.format}
                 </span>
               )}
-              {/* INDICADOR DE STOCK VISUAL */}
               <span className={`inline-block px-3 py-1 text-[10px] font-bold uppercase tracking-widest rounded ${product.stock > 0 ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
                 {product.stock > 0 ? `En stock: ${product.stock}` : 'En rupture'}
               </span>
+              {quantityInCart > 0 && (
+                <span className="inline-block px-3 py-1 bg-blue-50 text-blue-700 text-[10px] font-bold uppercase tracking-widest rounded">
+                  Dans le panier: {quantityInCart}
+                </span>
+              )}
             </div>
           </div>
 
@@ -146,8 +170,8 @@ export default function ProductPage() {
             <div className="flex items-center border border-gray-200 rounded-full px-4 py-2 w-fit bg-white">
               <button 
                 onClick={() => setQuantity(Math.max(1, quantity - 1))} 
-                className="p-2 hover:text-[#B29071] transition-colors"
-                disabled={product.stock <= 0}
+                className="p-2 hover:text-[#B29071] transition-colors disabled:opacity-20"
+                disabled={quantity <= 1 || availableToAdd <= 0}
               >
                 <Minus className="w-4 h-4" />
               </button>
@@ -155,7 +179,7 @@ export default function ProductPage() {
               <button 
                 onClick={() => setQuantity(quantity + 1)} 
                 className="p-2 hover:text-[#B29071] transition-colors disabled:opacity-20"
-                disabled={quantity >= product.stock} // BLOQUEO: No deja elegir más que el stock
+                disabled={quantity >= availableToAdd} 
               >
                 <Plus className="w-4 h-4" />
               </button>
@@ -163,15 +187,19 @@ export default function ProductPage() {
 
             <button 
               onClick={handleAddToCart} 
-              disabled={product.stock <= 0} // BLOQUEO: Desactivado si stock es 0
+              disabled={availableToAdd <= 0} 
               className={`flex-1 py-4 rounded-full text-xs font-bold uppercase tracking-widest transition-all flex items-center justify-center gap-3 shadow-lg ${
-                product.stock <= 0 
+                availableToAdd <= 0
                 ? "bg-gray-100 text-gray-400 cursor-not-allowed" 
                 : "bg-black text-white hover:bg-[#B29071]"
               }`}
             >
               <ShoppingBag className="w-4 h-4" /> 
-              {product.stock <= 0 ? "Rupture de stock" : "Ajouter au panier"}
+              {product.stock <= 0 
+                ? "Rupture de stock" 
+                : availableToAdd <= 0 
+                  ? "Limite de stock atteinte" 
+                  : "Ajouter au panier"}
             </button>
 
             <button 

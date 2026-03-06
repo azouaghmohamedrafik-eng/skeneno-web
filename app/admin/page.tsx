@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ShoppingBag, Image as ImageIcon, Settings, Share2, ArrowRight, CreditCard, Package } from "lucide-react";
+import { ShoppingBag, Image as ImageIcon, Settings, Share2, ArrowRight, CreditCard, Package, Gift, HelpCircle } from "lucide-react";
 
 export default function AdminDashboard() {
   const cards = [
@@ -27,25 +27,18 @@ export default function AdminDashboard() {
       color: "bg-purple-500"
     },
     { 
-      title: "Pied de page", 
-      desc: "Configurez le pied de page", 
-      href: "/admin/footer", 
-      icon: Share2,
-      color: "bg-green-500"
+      title: "Packaging", 
+      desc: "Gérez les options de coffrets", 
+      href: "/admin/packaging", 
+      icon: Gift,
+      color: "bg-amber-600"
     },
     { 
       title: "Paramètres", 
-      desc: "Menu dynamique et messages promotionnels", 
+      desc: "Menu dynamique et promos", 
       href: "/admin/configuration", 
       icon: Settings,
       color: "bg-orange-500"
-    },
-        { 
-      title: "Catalogue Produits", 
-      desc: "Gérez les textes, images et catégories", 
-      href: "/admin/produits", 
-      icon: ShoppingBag,
-      color: "bg-blue-500"
     },
     { 
       title: "Gestion du Stock", 
@@ -53,6 +46,13 @@ export default function AdminDashboard() {
       href: "/admin/stock", 
       icon: Package,
       color: "bg-emerald-500"
+    },
+    { 
+      title: "Guide d'Utilisation", 
+      desc: "Apprenez à gérer votre boutique", 
+      href: "/admin/guide", 
+      icon: HelpCircle,
+      color: "bg-gray-800"
     },
   ];
 
@@ -63,8 +63,7 @@ export default function AdminDashboard() {
         <p className="text-sm text-gray-500 mt-2">Sélectionnez une section pour commencer</p>
       </div>
 
-      {/* Ajustado a grid-cols-5 para pantallas grandes para que quepan las 5 tarjetas en linea si hay espacio */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
         {cards.map((card, index) => {
           const Icon = card.icon;
           return (

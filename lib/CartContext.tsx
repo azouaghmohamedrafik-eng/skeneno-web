@@ -15,6 +15,7 @@ interface CartContextType {
   cart: CartItem[];
   addToCart: (productId: string, qty: number) => Promise<void>;
   removeFromCart: (cartDocId: string) => Promise<void>;
+  clearCart: () => void; // NUEVA FUNCIÓN
   cartCount: number;
 }
 
@@ -27,7 +28,6 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     async function initCart() {
       try {
-        // Intentamos obtener el usuario real. Si no hay, no creamos sesión anónima.
         const currentUser = await account.get();
         setUserId(currentUser.$id);
 
@@ -42,7 +42,6 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
           user_id: doc.user_id
         })));
       } catch (error) {
-        // Si falla (no hay login), userId queda en null y el carrito vacío.
         setUserId(null);
         setCart([]);
       }
@@ -52,7 +51,6 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
 
   const addToCart = async (productId: string, qty: number) => {
     if (!userId) {
-      // Si quieres que el usuario deba estar logueado para añadir al carrito
       alert("Veuillez vous connecter pour ajouter des produits au panier.");
       return;
     }
@@ -88,10 +86,15 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
+  // FUNCIÓN PARA VACIAR EL ESTADO LOCAL
+  const clearCart = () => {
+    setCart([]);
+  };
+
   const cartCount = cart.reduce((total, item) => total + item.quantity, 0);
 
   return (
-    <CartContext.Provider value={{ cart, addToCart, removeFromCart, cartCount }}>
+    <CartContext.Provider value={{ cart, addToCart, removeFromCart, clearCart, cartCount }}>
       {children}
     </CartContext.Provider>
   );
