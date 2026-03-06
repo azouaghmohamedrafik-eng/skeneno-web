@@ -5,7 +5,7 @@ import { databases, DATABASE_ID } from "@/appwriteConfig";
 import { Query } from "appwrite";
 import { 
   Package, Truck, CheckCircle, Clock, Trash2, Loader2, 
-  MessageCircle, Mail, User, Phone, CheckCircle2, XCircle, Gift, ChevronLeft, ChevronRight 
+  MessageCircle, Mail, User, Phone, CheckCircle2, XCircle, Gift, ChevronLeft, ChevronRight, ShoppingBag 
 } from "lucide-react";
 
 interface Order {
@@ -15,7 +15,7 @@ interface Order {
   total: number;
   shipping_address: string;
   status: string;
-  gift_message?: string; // NUEVO: Campo para el mensaje de regalo
+  gift_message?: string; // Campo para el mensaje de la tarjeta de regalo
   $createdAt: string;
   clientName?: string;
   clientEmail?: string;
@@ -26,7 +26,7 @@ export default function AdminOrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("tous");
-  const [page, setPage] = useState(1); // NUEVO: Estado para paginación
+  const [page, setPage] = useState(1); 
   const [totalOrders, setTotalOrders] = useState(0);
   const [notif, setNotif] = useState({ show: false, msg: "", type: "success" as "success" | "error" });
 
@@ -34,7 +34,7 @@ export default function AdminOrdersPage() {
 
   useEffect(() => {
     fetchOrders();
-  }, [page, filter]); // Recargar si cambia la página o el filtro
+  }, [page, filter]); 
 
   const notify = (msg: string, type: "success" | "error") => {
     setNotif({ show: true, msg, type });
@@ -45,7 +45,6 @@ export default function AdminOrdersPage() {
     try {
       setLoading(true);
       
-      // Filtros dinámicos
       const queries = [
         Query.orderDesc('$createdAt'),
         Query.limit(ORDERS_PER_PAGE),
@@ -63,8 +62,8 @@ export default function AdminOrdersPage() {
         try {
           const profile: any = await databases.getDocument(DATABASE_ID, 'profiles', doc.user_id);
           return {
-            ...doc,
-            clientName: profile.full_name || "Client",
+            ...doc, // Incluye gift_message de la tabla orders
+            clientName: profile.full_name || "Client Inconnu", // Nombre completo del perfil
             clientEmail: profile.email || "Pas d'email",
             clientPhone: profile.phone || "N/A"
           };
@@ -139,16 +138,17 @@ export default function AdminOrdersPage() {
         {orders.map((order) => (
           <div key={order.$id} className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden flex flex-col md:flex-row">
             
-            {/* CLIENT INFO COMPACT */}
+            {/* INFO CLIENT (NOM COMPLET) */}
             <div className="md:w-60 bg-gray-50/30 p-5 border-r border-gray-100 flex flex-col justify-between">
               <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-lg bg-[#B29071] text-white flex items-center justify-center font-bold text-[10px]">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 shrink-0 rounded-lg bg-[#B29071] text-white flex items-center justify-center font-bold text-[10px]">
                     {order.clientName?.charAt(0)}
                   </div>
-                  <div>
-                    <p className="text-xs font-bold truncate max-w-[120px]">{order.clientName}</p>
-                    <p className="text-[9px] text-gray-400 uppercase">#{order.$id.slice(-5).toUpperCase()}</p>
+                  {/* CORRECCIÓN: Quitada la clase 'truncate' y 'max-w-[120px]' para mostrar el nombre entero */}
+                  <div className="flex-1">
+                    <p className="text-xs font-bold leading-tight break-words">{order.clientName}</p>
+                    <p className="text-[9px] text-gray-400 uppercase mt-0.5">#{order.$id.slice(-5).toUpperCase()}</p>
                   </div>
                 </div>
                 
@@ -164,20 +164,41 @@ export default function AdminOrdersPage() {
               </div>
             </div>
 
-            {/* ORDER CONTENT COMPACT */}
+            {/* CONTENU DE LA COMMANDE ET MESSAGE CADEAU */}
             <div className="flex-1 p-5 flex flex-col">
               <div className="flex justify-between items-start mb-4">
                 <div className="flex-1">
                   <span className="text-[8px] font-bold text-[#B29071] uppercase tracking-widest bg-[#B29071]/5 px-2 py-0.5 rounded">Articles</span>
-                  <p className="text-xs font-medium text-gray-700 pt-2 leading-relaxed">{order.items}</p>
+                  <div className="pt-2 space-y-2">
+                    {order.items.split(",").map((raw, idx) => {
+                      const t = raw.trim();
+                      const isGift = /\(OFFERT\)/i.test(t);
+                      const isBox = /Coffret Cadeau/i.test(t);
+                      const isBag = /(Pochette Cadeau|Sac Cadeau)/i.test(t);
+                      return (
+                        <div 
+                          key={idx} 
+                          className={`flex justify-between items-center text-xs ${isGift ? "text-amber-700 font-bold" : "text-gray-700"}`}
+                        >
+                          <span className="flex items-center gap-2">
+                            {isGift ? <Gift className="w-3.5 h-3.5" /> : isBox ? <Package className="w-3.5 h-3.5" /> : isBag ? <ShoppingBag className="w-3.5 h-3.5" /> : <CheckCircle2 className="w-3.5 h-3.5 text-gray-300" />}
+                            {t.replace(/\s*\(OFFERT\)\s*/i, "").trim()}
+                          </span>
+                          <span className="text-[10px]">{isGift ? "OFFERT" : ""}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
                   
-                  {/* MENSAJE DE REGALO (NUEVO) */}
-                  {order.gift_message && (
-                    <div className="mt-3 p-2 bg-amber-50 border border-amber-100 rounded-lg">
-                      <p className="text-[8px] font-bold text-amber-800 uppercase flex items-center gap-1">
-                        <Gift className="w-2.5 h-2.5" /> Message de cadeau :
+                  {/* VISUALIZACIÓN DEL MESSAGE CADEAU */}
+                  {order.gift_message && order.gift_message.trim() !== "" && (
+                    <div className="mt-4 p-3 bg-amber-50 border border-amber-100 rounded-xl">
+                      <p className="text-[8px] font-bold text-amber-800 uppercase flex items-center gap-1.5 mb-1">
+                        <Gift className="w-3 h-3" /> Message pour la carte cadeau :
                       </p>
-                      <p className="text-[10px] text-amber-900 mt-0.5 italic">"{order.gift_message}"</p>
+                      <p className="text-[11px] text-amber-900 italic leading-relaxed">
+                        "{order.gift_message}"
+                      </p>
                     </div>
                   )}
                 </div>
@@ -217,7 +238,7 @@ export default function AdminOrdersPage() {
         ))}
       </div>
 
-      {/* PAGINACIÓN (NUEVO) */}
+      {/* PAGINACIÓN */}
       {totalOrders > ORDERS_PER_PAGE && (
         <div className="flex justify-center items-center gap-6 pt-6">
           <button 

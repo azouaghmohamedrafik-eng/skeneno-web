@@ -287,12 +287,12 @@ export default function Navbar() {
 
           <div className="flex justify-end gap-4 md:gap-6 w-1/3 items-center text-[11px] uppercase font-medium text-black">
             {isAdmin && (
-              <Link href="/admin" className="hidden lg:flex items-center gap-2 bg-[#B29071]/10 text-[#B29071] px-3 py-1.5 rounded-md border border-[#B29071]/20 font-bold hover:bg-[#B29071] hover:text-white transition-all">
+              <Link href="/admin" className="flex items-center gap-2 bg-[#B29071]/10 text-[#B29071] px-2.5 py-1 rounded-md border border-[#B29071]/20 font-bold hover:bg-[#B29071] hover:text-white transition-all">
                 <ShieldCheck className="w-4 h-4" /> <span className="text-[9px]">PANEL ADMIN</span>
               </Link>
             )}
             
-            <div className="hidden lg:flex items-center gap-4">
+            <div className="flex items-center gap-3">
               {user ? (
                 <>
                   <Link href="/compte"><User className="w-5 h-5 text-[#B29071]" /></Link>
@@ -365,6 +365,25 @@ export default function Navbar() {
             </button>
           </div>
           <div className="p-6">
+            {user ? (
+              <div className="mb-4 space-y-3">
+                <Link href="/compte" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center gap-2 py-3 border-b text-[11px] font-bold uppercase">
+                  <User className="w-4 h-4" /> Mon Compte
+                </Link>
+                {isAdmin && (
+                  <Link href="/admin" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center gap-2 py-3 border-b text-[11px] font-bold uppercase text-[#B29071]">
+                    <ShieldCheck className="w-4 h-4" /> Panel Admin
+                  </Link>
+                )}
+                <button onClick={handleLogout} className="flex items-center gap-2 py-3 text-[11px] font-bold uppercase">
+                  <LogOut className="w-4 h-4" /> Déconnexion
+                </button>
+              </div>
+            ) : (
+              <Link href="/login" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center gap-2 py-3 border-b text-[11px] font-bold uppercase">
+                <User className="w-4 h-4" /> Se connecter
+              </Link>
+            )}
             <Link href="/boutique" className="block py-4 border-b text-[12px] font-bold">TOUS NOS PRODUITS</Link>
             <Link href="/boutique/Visage" className="block py-4 border-b text-[12px] font-bold">VISAGE</Link>
             <Link href="/boutique/Corps" className="block py-4 border-b text-[12px] font-bold">CORPS</Link>

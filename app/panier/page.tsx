@@ -54,9 +54,9 @@ export default function PanierPage() {
 
           if (currentGiftId) {
             try {
-              const gProd = await databases.getDocument(DATABASE_ID, 'products', currentGiftId);
+              const gProd = await databases.getDocument(DATABASE_ID, 'gift_inventory', currentGiftId);
               setGiftProduct(gProd);
-            } catch (e) { console.error("Gift product not found"); }
+            } catch (e) { console.error("Gift product not found in gift_inventory"); }
           }
         }
 
@@ -86,7 +86,7 @@ export default function PanierPage() {
         const sampleRes = await databases.listDocuments(DATABASE_ID, "products", [Query.equal("is_sample", true), Query.limit(8)]);
         setSamples(sampleRes.documents);
 
-        // Recuperar mensaje si ya existía
+        // RECUPERAR MENSAJE GUARDADO
         const savedMsg = localStorage.getItem("skineno_gift_message");
         if (savedMsg) setGiftMessage(savedMsg);
 
@@ -95,6 +95,7 @@ export default function PanierPage() {
     loadAllData();
   }, [cart]);
 
+  // --- LÓGICA DE AUTO-LIMPIEZA (SI NO HAY PRODUCTOS REALES, QUITAR TODO) ---
   useEffect(() => {
     if (!loading && products.length === 0 && cart.length > 0) {
       const onlyPackagingOrGift = cart.every(item => 
@@ -123,9 +124,12 @@ export default function PanierPage() {
     try { await addToCart(productId, delta); } finally { setUpdatingId(null); }
   };
 
+  // --- CORRECCIÓN: EL BOTÓN SOLO DA FEEDBACK VISUAL AHORA ---
   const handleSaveMessage = () => {
-    if (!giftMessage.trim()) return;
-    localStorage.setItem("skineno_gift_message", giftMessage);
+    if (!giftMessage.trim()) {
+      localStorage.removeItem("skineno_gift_message");
+      return;
+    }
     setMsgStatus(true);
     setTimeout(() => setMsgStatus(false), 2000);
   };
@@ -141,7 +145,7 @@ export default function PanierPage() {
 
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-white"><Loader2 className="w-10 h-10 animate-spin text-[#B29071]" /></div>;
 
-  if (products.length === 0) return (
+  if (products.length === 0 && !boxInCart && !bagInCart) return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-white px-6 text-center">
       <div className="absolute top-10 left-10 flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest">VOTRE PANIER <span className="text-gray-400">0 PRODUITS</span></div>
       <h2 className="text-5xl font-serif mb-4 tracking-tighter uppercase">Votre panier est vide</h2>
@@ -294,7 +298,7 @@ export default function PanierPage() {
                     </div>
                   )}
                   <div className="pt-6">
-                    <textarea value={giftMessage} onChange={(e) => setGiftMessage(e.target.value)} placeholder="Votre message" className="w-full border-b border-gray-200 py-3 text-sm outline-none focus:border-[#B29071] transition-all resize-none bg-transparent" />
+                    <textarea value={giftMessage} onChange={(e) => {setGiftMessage(e.target.value); localStorage.setItem("skineno_gift_message", e.target.value);}} placeholder="Votre message" className="w-full border-b border-gray-200 py-3 text-sm outline-none focus:border-[#B29071] transition-all resize-none bg-transparent" />
                     <div className="flex justify-end mt-4">
                       <button onClick={handleSaveMessage} className={`text-[10px] font-bold uppercase tracking-widest border border-gray-200 px-8 py-2.5 rounded-full transition-all ${msgStatus ? 'bg-green-600 text-white border-green-600' : 'hover:bg-black hover:text-white'}`}>{msgStatus ? <span className="flex items-center gap-2"><Check className="w-3 h-3"/> Validé</span> : "Valider"}</button>
                     </div>

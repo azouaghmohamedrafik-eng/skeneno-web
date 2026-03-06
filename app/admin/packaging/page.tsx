@@ -8,7 +8,7 @@ import { ID, Query } from "appwrite";
 
 export default function PackagingPage() {
   const [loading, setLoading] = useState(false);
-  const [allProducts, setAllProducts] = useState<any[]>([]); // Lista para el selector
+  const [giftItems, setGiftItems] = useState<any[]>([]); // Lista específica de regalos
   
   // --- ESTADOS PARA PACKAGING ---
   const [boxImg, setBoxImg] = useState("");
@@ -22,7 +22,7 @@ export default function PackagingPage() {
   const [giftActive, setGiftActive] = useState(false);
   const [giftThreshold, setGiftThreshold] = useState("0");
   const [giftName, setGiftName] = useState("");
-  const [giftProductId, setGiftProductId] = useState(""); // ID del producto real
+  const [giftProductId, setGiftProductId] = useState(""); 
 
   const [uploading, setUploading] = useState({ box: false, bag: false });
   const [notif, setNotif] = useState({ show: false, msg: "", type: "success" as "success" | "error" });
@@ -31,15 +31,15 @@ export default function PackagingPage() {
 
   useEffect(() => { 
     fetchSettings(); 
-    fetchProducts();
+    fetchGifts(); // Cambiado a fetchGifts
   }, []);
 
-  // Cargar productos para el selector de regalos
-  async function fetchProducts() {
+  // --- CORRECCIÓN: Cargamos la colección gift_inventory ---
+  async function fetchGifts() {
     try {
-      const res = await databases.listDocuments(DATABASE_ID, 'products', [Query.orderAsc('name'), Query.limit(100)]);
-      setAllProducts(res.documents);
-    } catch (error) { console.error("Error productos:", error); }
+      const res = await databases.listDocuments(DATABASE_ID, 'gift_inventory', [Query.orderAsc('name'), Query.limit(100)]);
+      setGiftItems(res.documents);
+    } catch (error) { console.error("Error regalos:", error); }
   }
 
   async function fetchSettings() {
@@ -89,7 +89,7 @@ export default function PackagingPage() {
         gift_active: giftActive, 
         gift_threshold: parseFloat(giftThreshold) || 0, 
         gift_name: giftName,
-        gift_product_id: giftProductId // Guardamos el ID seleccionado
+        gift_product_id: giftProductId 
       };
       if (resPkg.documents.length > 0) {
         await databases.updateDocument(DATABASE_ID, 'packaging_settings', resPkg.documents[0].$id, payload);
@@ -105,7 +105,7 @@ export default function PackagingPage() {
     <div className="max-w-5xl mx-auto animate-fade-in-up text-black space-y-8 pb-20">
       {notif.show && (
         <div className={`fixed bottom-6 right-6 z-50 px-6 py-3 rounded-xl shadow-2xl border bg-white flex items-center gap-3 ${notif.type === 'success' ? 'border-green-100 text-green-800' : 'border-red-100 text-red-800'}`}>
-          {notif.type === 'success' ? <CheckCircle2 className="w-4 h-4 text-green-500" /> : <XCircle className="w-4 h-4 text-red-500" />}
+          {notif.type === 'success' ? <CheckCircle2 className="w-5 h-5 text-green-500" /> : <XCircle className="w-5 h-5 text-red-500" />}
           <span className="text-xs font-bold uppercase tracking-wider">{notif.msg}</span>
         </div>
       )}
@@ -122,7 +122,6 @@ export default function PackagingPage() {
         </div>
       </div>
 
-      {/* --- SECCIÓN REGLA DE REGALO COMPACTA --- */}
       <div className="bg-black text-white p-7 rounded-[2rem] shadow-xl space-y-6 relative overflow-hidden">
         <div className="flex items-center justify-between relative z-10">
           <div className="flex items-center gap-3">
@@ -140,14 +139,18 @@ export default function PackagingPage() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 relative z-10">
           <div className="space-y-1.5">
             <label className="text-[9px] font-bold uppercase text-gray-500 tracking-widest ml-1">Nom de l'offre (Texte)</label>
-            <input type="text" value={giftName} onChange={e => setGiftName(e.target.value)} className="w-full bg-white/5 border border-white/10 p-3 rounded-xl text-white text-sm outline-none focus:border-[#B29071]" placeholder="ex: Masque de nuit offert" />
+            <input type="text" value={giftName} onChange={e => setGiftName(e.target.value)} className="w-full bg-white/5 border border-white/10 p-3.5 rounded-xl text-white text-sm outline-none focus:border-[#B29071]" placeholder="ex: Masque de nuit offert" />
           </div>
           <div className="space-y-1.5">
-            <label className="text-[9px] font-bold uppercase text-gray-500 tracking-widest ml-1">Produit à offrir (Stock)</label>
+            <label className="text-[9px] font-bold uppercase text-gray-500 tracking-widest ml-1">Produit à offrir (Liste cadeaux)</label>
             <div className="relative">
-              <select value={giftProductId} onChange={e => setGiftProductId(e.target.value)} className="w-full bg-white/5 border border-white/10 p-3 rounded-xl text-sm text-white outline-none focus:border-[#B29071] appearance-none cursor-pointer">
-                <option value="" className="text-gray-400">Choisir un produit...</option>
-                {allProducts.map(p => <option key={p.$id} value={p.$id} className="text-black">{p.name}</option>)}
+              <select 
+                value={giftProductId} 
+                onChange={e => setGiftProductId(e.target.value)}
+                className="w-full bg-white/5 border border-white/10 p-3.5 rounded-xl text-sm text-white outline-none focus:border-[#B29071] appearance-none cursor-pointer"
+              >
+                <option value="" className="text-gray-400">Choisir un cadeau...</option>
+                {giftItems.map(g => <option key={g.$id} value={g.$id} className="text-black">{g.name}</option>)}
               </select>
               <ChevronDown className="absolute right-3 top-3.5 w-4 h-4 text-gray-500 pointer-events-none" />
             </div>
@@ -155,16 +158,14 @@ export default function PackagingPage() {
           <div className="space-y-1.5">
             <label className="text-[9px] font-bold uppercase text-gray-500 tracking-widest ml-1">Seuil (DHS)</label>
             <div className="relative">
-                <input type="number" value={giftThreshold} onChange={e => setGiftThreshold(e.target.value)} className="w-full bg-white/5 border border-white/10 p-3 rounded-xl text-white text-sm outline-none focus:border-[#B29071]" placeholder="1500" />
+                <input type="number" value={giftThreshold} onChange={e => setGiftThreshold(e.target.value)} className="w-full bg-white/5 border border-white/10 p-3.5 rounded-xl text-white text-sm outline-none focus:border-[#B29071]" placeholder="1500" />
                 <Target className="absolute right-3 top-3 w-4 h-4 text-gray-500" />
             </div>
           </div>
         </div>
       </div>
 
-      {/* --- SECCIÓN PACKAGING COMPACTA --- */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        {/* COFFRET */}
         <div className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-sm space-y-5">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 text-[#B29071]"><Gift className="w-5 h-5" /><h4 className="font-bold uppercase tracking-widest text-xs">Coffret Luxe</h4></div>
@@ -172,26 +173,16 @@ export default function PackagingPage() {
               <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${boxActive ? 'translate-x-6' : 'translate-x-0.5'}`} />
             </button>
           </div>
-          <div className="space-y-3">
-            <div className="aspect-video bg-gray-50 rounded-2xl border-2 border-dashed border-gray-200 flex items-center justify-center overflow-hidden relative group">
-              {boxImg ? <img src={boxImg} className="w-full h-full object-contain p-4" alt="Box" /> : <ImageIcon className="w-8 h-8 text-gray-200 mx-auto" />}
-              <label className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center cursor-pointer text-white gap-1">
-                <Upload className="w-5 h-5" /><span className="text-[9px] font-bold uppercase">Charger</span>
-                <input type="file" className="hidden" onChange={(e) => handlePkgUpload(e, 'box')} />
-              </label>
-            </div>
-            <div className="flex items-start gap-2 px-1">
-                <Info className="w-3.5 h-3.5 text-gray-400 shrink-0 mt-0.5" />
-                <p className="text-[9px] text-gray-400 leading-relaxed">Format recommandé : <strong>PNG transparent</strong>, ratio 1:1. Taille max 2MB.</p>
-            </div>
+          <div className="aspect-video bg-gray-50 rounded-2xl border-2 border-dashed border-gray-200 flex items-center justify-center overflow-hidden relative group">
+            {boxImg ? <img src={boxImg} className="w-full h-full object-contain p-4" alt="Box" /> : <ImageIcon className="w-8 h-8 text-gray-200 mx-auto" />}
+            <label className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center cursor-pointer text-white gap-1">
+              <Upload className="w-5 h-5" /><span className="text-[9px] font-bold uppercase">Charger</span>
+              <input type="file" className="hidden" onChange={(e) => handlePkgUpload(e, 'box')} />
+            </label>
           </div>
-          <div className="space-y-1">
-            <label className="text-[9px] font-bold uppercase text-gray-400 tracking-widest ml-1">Prix de l'option (DHS)</label>
-            <input type="number" value={boxPrice} onChange={e => setBoxPrice(e.target.value)} className="w-full bg-gray-50 border border-gray-100 p-3 rounded-xl text-sm font-bold outline-none focus:bg-white focus:border-[#B29071]" />
-          </div>
+          <input type="number" value={boxPrice} onChange={e => setBoxPrice(e.target.value)} className="w-full bg-gray-50 border border-gray-100 p-3 rounded-xl text-sm font-bold outline-none focus:bg-white focus:border-[#B29071]" />
         </div>
 
-        {/* POCHETTE */}
         <div className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-sm space-y-5">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 text-[#B29071]"><Package className="w-5 h-5" /><h4 className="font-bold uppercase tracking-widest text-xs">Pochette Satin</h4></div>
@@ -199,23 +190,14 @@ export default function PackagingPage() {
               <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${bagActive ? 'translate-x-6' : 'translate-x-0.5'}`} />
             </button>
           </div>
-          <div className="space-y-3">
-            <div className="aspect-video bg-gray-50 rounded-2xl border-2 border-dashed border-gray-200 flex items-center justify-center overflow-hidden relative group">
-              {bagImg ? <img src={bagImg} className="w-full h-full object-contain p-4" alt="Bag" /> : <ImageIcon className="w-8 h-8 text-gray-200 mx-auto" />}
-              <label className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center cursor-pointer text-white gap-1">
-                <Upload className="w-5 h-5" /><span className="text-[9px] font-bold uppercase">Charger</span>
-                <input type="file" className="hidden" onChange={(e) => handlePkgUpload(e, 'bag')} />
-              </label>
-            </div>
-            <div className="flex items-start gap-2 px-1">
-                <Info className="w-3.5 h-3.5 text-gray-400 shrink-0 mt-0.5" />
-                <p className="text-[9px] text-gray-400 leading-relaxed">Format recommandé : <strong>PNG transparent</strong>, ratio 1:1. Taille max 2MB.</p>
-            </div>
+          <div className="aspect-video bg-gray-50 rounded-2xl border-2 border-dashed border-gray-200 flex items-center justify-center overflow-hidden relative group">
+            {bagImg ? <img src={bagImg} className="w-full h-full object-contain p-4" alt="Bag" /> : <ImageIcon className="w-8 h-8 text-gray-200 mx-auto" />}
+            <label className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center cursor-pointer text-white gap-1">
+              <Upload className="w-5 h-5" /><span className="text-[9px] font-bold uppercase">Charger</span>
+              <input type="file" className="hidden" onChange={(e) => handlePkgUpload(e, 'bag')} />
+            </label>
           </div>
-          <div className="space-y-1">
-            <label className="text-[9px] font-bold uppercase text-gray-400 tracking-widest ml-1">Prix de l'option (DHS)</label>
-            <input type="number" value={bagPrice} onChange={e => setBagPrice(e.target.value)} className="w-full bg-gray-50 border border-gray-100 p-3 rounded-xl text-sm font-bold outline-none focus:bg-white focus:border-[#B29071]" />
-          </div>
+          <input type="number" value={bagPrice} onChange={e => setBagPrice(e.target.value)} className="w-full bg-gray-50 border border-gray-100 p-3 rounded-xl text-sm font-bold outline-none focus:bg-white focus:border-[#B29071]" />
         </div>
       </div>
 

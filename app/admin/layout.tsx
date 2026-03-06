@@ -15,7 +15,7 @@ import {
   Package, 
   CreditCard,
   Gift,
-  HelpCircle // Icono para la guía
+  HelpCircle 
 } from "lucide-react";
 import Link from "next/link";
 import { account, databases, DATABASE_ID } from "../../appwriteConfig";
@@ -53,11 +53,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { name: "Produits", href: "/admin/inventaire", icon: ShoppingBag }, 
     { name: "Stock", href: "/admin/stock", icon: Package },             
     { name: "Commandes", href: "/admin/commandes", icon: CreditCard },
-    { name: "Packaging", href: "/admin/packaging", icon: Gift },
+    { name: "Packaging", href: "/admin/packaging", icon: Package },
+    { name: "Cadeaux", href: "/admin/gifts", icon: Gift }, // NUEVA SECCIÓN AÑADIDA
     { name: "Slider", href: "/admin/slider", icon: ImageIcon },
     { name: "Footer", href: "/admin/footer", icon: Share2 },
     { name: "Config", href: "/admin/configuration", icon: Settings },
-    { name: "Guide", href: "/admin/guide", icon: HelpCircle }, // NUEVA SECCIÓN
+    { name: "Guide", href: "/admin/guide", icon: HelpCircle },
   ];
 
   if (loading) return (
