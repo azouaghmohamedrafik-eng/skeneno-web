@@ -287,12 +287,12 @@ export default function Navbar() {
 
           <div className="flex justify-end gap-4 md:gap-6 w-1/3 items-center text-[11px] uppercase font-medium text-black">
             {isAdmin && (
-              <Link href="/admin" className="flex items-center gap-2 bg-[#B29071]/10 text-[#B29071] px-2.5 py-1 rounded-md border border-[#B29071]/20 font-bold hover:bg-[#B29071] hover:text-white transition-all">
+              <Link href="/admin" className="hidden lg:flex items-center gap-2 bg-[#B29071]/10 text-[#B29071] px-2.5 py-1 rounded-md border border-[#B29071]/20 font-bold hover:bg-[#B29071] hover:text-white transition-all">
                 <ShieldCheck className="w-4 h-4" /> <span className="text-[9px]">PANEL ADMIN</span>
               </Link>
             )}
             
-            <div className="flex items-center gap-3">
+            <div className="hidden lg:flex items-center gap-3">
               {user ? (
                 <>
                   <Link href="/compte"><User className="w-5 h-5 text-[#B29071]" /></Link>
