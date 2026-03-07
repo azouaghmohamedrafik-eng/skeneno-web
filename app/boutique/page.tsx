@@ -119,7 +119,7 @@ export default function BoutiquePage() {
                 <Link href={`/produit/${product.$id}`}>
                   <h3 className="font-serif text-xl mb-1 hover:text-[#B29071] transition-colors">{product.name}</h3>
                   <p className="text-[10px] text-gray-400 uppercase tracking-widest mb-3">{product.format || "Format standard"}</p>
-                  <p className="text-[#B29071] font-bold tracking-widest">{Number(product.price).toFixed(2)} DHS</p>
+                  <p className="text-[#B29071] font-bold tracking-widest">{Number(product.price).toFixed(2)} MAD</p>
                 </Link>
               </div>
             </div>

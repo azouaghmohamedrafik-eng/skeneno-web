@@ -199,7 +199,7 @@ export default function AdminGuidePage() {
               <h4 className="font-bold text-xl uppercase tracking-wider">Règles de Cadeaux</h4>
             </div>
             <p className="text-sm text-gray-500 leading-relaxed">
-              Dans <strong>Configuration</strong>, vous pouvez définir un seuil de cadeau (ex: 1500 DH). <br /><br />
+              Dans <strong>Configuration</strong>, vous pouvez définir un seuil de cadeau (ex: 1500 MAD). <br /><br />
               - <strong>Impact :</strong> Une barre de progression apparaîtra dans le panier du client pour l'encourager à acheter plus afin de débloquer le cadeau. <br />
               - <strong>Flexibilité :</strong> Vous pouvez changer le nom du cadeau et le montant minimum à tout moment selon vos stocks.
             </p>

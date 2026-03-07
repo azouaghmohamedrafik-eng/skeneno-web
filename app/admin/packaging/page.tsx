@@ -156,7 +156,7 @@ export default function PackagingPage() {
             </div>
           </div>
           <div className="space-y-1.5">
-            <label className="text-[9px] font-bold uppercase text-gray-500 tracking-widest ml-1">Seuil (DHS)</label>
+            <label className="text-[9px] font-bold uppercase text-gray-500 tracking-widest ml-1">Seuil (MAD)</label>
             <div className="relative">
                 <input type="number" value={giftThreshold} onChange={e => setGiftThreshold(e.target.value)} className="w-full bg-white/5 border border-white/10 p-3.5 rounded-xl text-white text-sm outline-none focus:border-[#B29071]" placeholder="1500" />
                 <Target className="absolute right-3 top-3 w-4 h-4 text-gray-500" />
