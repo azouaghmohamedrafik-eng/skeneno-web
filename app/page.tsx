@@ -16,6 +16,8 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [currentSlide, setCurrentSlide] = useState(0);
   const mobileProductsRef = useRef<HTMLDivElement | null>(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -53,10 +55,36 @@ export default function Home() {
 
   const nextSlide = () => { if (slides.length > 0) setCurrentSlide((prev) => (prev + 1) % slides.length); };
   const prevSlide = () => { if (slides.length > 0) setCurrentSlide((prev) => (prev === 0 ? slides.length - 1 : prev - 1)); };
+  const updateMobileScrollState = () => {
+    const container = mobileProductsRef.current;
+    if (!container) {
+      setCanScrollLeft(false);
+      setCanScrollRight(false);
+      return;
+    }
+    const maxLeft = container.scrollWidth - container.clientWidth;
+    setCanScrollLeft(container.scrollLeft > 2);
+    setCanScrollRight(container.scrollLeft < maxLeft - 2);
+  };
   const scrollMobileProducts = (direction: "left" | "right") => {
     if (!mobileProductsRef.current) return;
     mobileProductsRef.current.scrollBy({ left: direction === "left" ? -320 : 320, behavior: "smooth" });
+    setTimeout(updateMobileScrollState, 260);
   };
+
+  useEffect(() => {
+    updateMobileScrollState();
+    const container = mobileProductsRef.current;
+    if (!container) return;
+    const handleScroll = () => updateMobileScrollState();
+    const handleResize = () => updateMobileScrollState();
+    container.addEventListener("scroll", handleScroll, { passive: true });
+    window.addEventListener("resize", handleResize);
+    return () => {
+      container.removeEventListener("scroll", handleScroll);
+      window.removeEventListener("resize", handleResize);
+    };
+  }, [products]);
 
   // Auto-play del slider
   useEffect(() => {
@@ -146,9 +174,31 @@ export default function Home() {
           <p className="text-xs text-gray-500 font-sans tracking-widest font-light">Découvrez nos rituels de soin les plus précieux.</p>
         </div>
 
-        <div className="md:hidden -mx-6 px-6 overflow-x-auto">
+        <div className="md:hidden relative -mx-6 px-6">
+          {products.length > 1 && (canScrollLeft || canScrollRight) && (
+            <>
+              {canScrollLeft && (
+                <button
+                  type="button"
+                  onClick={() => scrollMobileProducts("left")}
+                  className="absolute left-1 top-[42%] -translate-y-1/2 z-20 w-7 h-7 rounded-full bg-[#C7B186] text-white flex items-center justify-center shadow-sm"
+                >
+                  <ChevronLeft className="w-3.5 h-3.5" />
+                </button>
+              )}
+              {canScrollRight && (
+                <button
+                  type="button"
+                  onClick={() => scrollMobileProducts("right")}
+                  className="absolute right-1 top-[42%] -translate-y-1/2 z-20 w-7 h-7 rounded-full bg-[#C7B186] text-white flex items-center justify-center shadow-sm"
+                >
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </>
+          )}
           <div ref={mobileProductsRef} className="flex gap-5 snap-x snap-mandatory pb-2 overflow-x-auto">
-            {products.map((item, index) => (
+            {products.map((item) => (
               <div key={item.id} className="snap-start shrink-0 w-[82vw] flex flex-col text-left">
                 <Link href={`/produit/${item.id}`} className="block">
                   <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-black mb-3 block">Meilleure Vente</span>
@@ -158,30 +208,6 @@ export default function Home() {
                       className="w-full h-full object-cover object-center"
                       alt={item.name}
                     />
-                    {products.length > 1 && index > 0 && (
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          scrollMobileProducts("left");
-                        }}
-                        className="absolute left-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-[#C7B186] text-white flex items-center justify-center"
-                      >
-                        <ChevronLeft className="w-3.5 h-3.5" />
-                      </button>
-                    )}
-                    {products.length > 1 && index < products.length - 1 && (
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          scrollMobileProducts("right");
-                        }}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-[#C7B186] text-white flex items-center justify-center"
-                      >
-                        <ChevronRight className="w-3.5 h-3.5" />
-                      </button>
-                    )}
                   </div>
                 </Link>
                 <h4 className="text-3xl font-serif tracking-tight text-black uppercase leading-none">{item.name}</h4>
