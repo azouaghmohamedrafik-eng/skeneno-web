@@ -171,9 +171,10 @@ export default function Navbar() {
   };
 
   useEffect(() => {
-    if (isMobileMenuOpen) document.body.style.overflow = 'hidden';
+    const isMobileViewport = typeof window !== "undefined" ? window.innerWidth < 1024 : false;
+    if (isMobileMenuOpen || (isSearchOpen && isMobileViewport)) document.body.style.overflow = 'hidden';
     else document.body.style.overflow = 'unset';
-  }, [isMobileMenuOpen]);
+  }, [isMobileMenuOpen, isSearchOpen]);
 
   useEffect(() => {
     async function fetchSearchData() {
@@ -361,6 +362,16 @@ export default function Navbar() {
           <div className="w-1/3 flex items-center gap-4">
             <button className="lg:hidden text-black" onClick={() => setIsMobileMenuOpen(true)}>
               <Menu className="w-6 h-6" />
+            </button>
+            <button
+              type="button"
+              className="lg:hidden text-black"
+              onClick={() => {
+                setIsMobileMenuOpen(false);
+                setIsSearchOpen(true);
+              }}
+            >
+              <Search className="w-5 h-5" />
             </button>
             <div className="hidden lg:flex gap-6 items-center text-[11px] uppercase tracking-[0.15em] font-medium text-black">
               <button
@@ -577,6 +588,67 @@ export default function Navbar() {
             <Link href="/boutique/Corps" onClick={() => setIsMobileMenuOpen(false)} className="block py-4 border-b text-[12px] font-bold">CORPS</Link>
             <Link href="/boutique/Cheveux" onClick={() => setIsMobileMenuOpen(false)} className="block py-4 border-b text-[12px] font-bold">CHEVEUX</Link>
             <Link href="/offres" onClick={() => setIsMobileMenuOpen(false)} className="block py-4 border-b text-[12px] font-bold">NOS OFFRES</Link>
+          </div>
+        </div>
+      </div>
+
+      <div className={`fixed inset-0 z-[112] lg:hidden transition-all duration-300 ${isSearchOpen ? "opacity-100 visible" : "opacity-0 invisible pointer-events-none"}`}>
+        <div className="absolute inset-0 bg-black/40" onClick={() => setIsSearchOpen(false)} />
+        <div className={`absolute top-0 left-0 right-0 bg-white rounded-b-3xl shadow-2xl max-h-[86vh] overflow-hidden transition-transform duration-300 ${isSearchOpen ? "translate-y-0" : "-translate-y-6"}`}>
+          <div className="px-5 pt-5 pb-4 border-b border-gray-100 flex items-center gap-3">
+            <Search className="w-4 h-4 text-gray-500" />
+            <input
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              placeholder="Chercher..."
+              className="w-full text-sm outline-none placeholder:text-gray-400"
+            />
+            <button type="button" onClick={() => setIsSearchOpen(false)} className="p-2 text-gray-400">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+          <div className="px-5 py-4 overflow-y-auto max-h-[calc(86vh-70px)] space-y-5">
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] mb-3 text-gray-400">Recherches populaires</p>
+              <div className="flex flex-wrap gap-2">
+                {filteredPopularTerms.map((term) => (
+                  <button
+                    key={term}
+                    type="button"
+                    onClick={() => setSearchInput(term)}
+                    className="px-3 py-2 rounded-full border border-gray-200 text-[11px] text-gray-600"
+                  >
+                    {term}
+                  </button>
+                ))}
+                {!searchLoading && filteredPopularTerms.length === 0 && (
+                  <p className="text-[11px] text-gray-400">Aucun terme disponible.</p>
+                )}
+              </div>
+            </div>
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] mb-3 text-gray-400">Produits recommandés</p>
+              <div className="space-y-3">
+                {filteredSearchProducts.map((prod: any) => (
+                  <div key={prod.$id} className="border border-gray-100 rounded-2xl p-3 bg-[#fffdf9]">
+                    <Link href={`/produit/${prod.$id}`} onClick={() => setIsSearchOpen(false)} className="flex gap-3">
+                      <div className="w-16 h-16 rounded-xl overflow-hidden bg-white shrink-0">
+                        <img src={getImageUrl(prod.image || prod.image_url)} alt={prod.name} className="w-full h-full object-cover" />
+                      </div>
+                      <div className="min-w-0">
+                        <h4 className="text-[11px] font-bold uppercase tracking-wide line-clamp-2">{prod.name}</h4>
+                        <p className="text-[11px] mt-2 font-bold text-[#B29071]">{Number(prod.price || 0).toFixed(2)} MAD</p>
+                      </div>
+                    </Link>
+                  </div>
+                ))}
+                {!searchLoading && filteredSearchProducts.length === 0 && (
+                  <div className="h-20 flex items-center justify-center border border-dashed border-gray-200 rounded-2xl text-[11px] text-gray-400 uppercase tracking-wider">
+                    Aucun produit trouvé
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       </div>
