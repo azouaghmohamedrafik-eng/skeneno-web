@@ -4,18 +4,25 @@ import { useEffect, useState } from "react";
 import { databases, DATABASE_ID } from "@/appwriteConfig";
 import { Query } from "appwrite";
 import Link from "next/link";
-import { Loader2, ShoppingBag, Heart, CheckCircle2 } from "lucide-react";
-// Importación de los contextos
+import { Loader2, ShoppingBag, CheckCircle2, Star } from "lucide-react";
 import { useCart } from "@/lib/CartContext";
-import { useWishlist } from "@/lib/WishlistContext";
+
+interface Product {
+  id: string;
+  name: string;
+  price: number;
+  image_url: string;
+  mini_title?: string;
+  description_short?: string;
+  reviews_count?: number;
+}
 
 export default function BoutiquePage() {
-  const [products, setProducts] = useState<any[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [addedNotify, setAddedNotify] = useState(false);
 
   const { addToCart } = useCart();
-  const { toggleWishlist, isInWishlist } = useWishlist();
 
   useEffect(() => {
     async function getProducts() {
@@ -25,7 +32,16 @@ export default function BoutiquePage() {
           'products', 
           [Query.orderAsc('name')]
         );
-        setProducts(response.documents);
+        const formatted = response.documents.map((doc: any) => ({
+          id: doc.$id,
+          name: doc.name,
+          price: Number(doc.price),
+          image_url: doc.image_url,
+          mini_title: doc.mini_title || "",
+          description_short: doc.description_short || "",
+          reviews_count: Number(doc.reviews_count || 0),
+        }));
+        setProducts(formatted);
       } catch (error) {
         console.error("Error:", error);
       } finally {
@@ -36,8 +52,7 @@ export default function BoutiquePage() {
   }, []);
 
   // Función para añadir al carrito desde la rejilla
-  const handleQuickAdd = async (e: React.MouseEvent, productId: string) => {
-    e.preventDefault(); // Evita que el click dispare navegación
+  const handleQuickAdd = async (productId: string) => {
     try {
       await addToCart(productId, 1);
       setAddedNotify(true);
@@ -45,16 +60,6 @@ export default function BoutiquePage() {
     } catch (error) {
       console.error("Error adding to cart:", error);
     }
-  };
-
-  const handleToggleWishlist = (e: React.MouseEvent, product: any) => {
-    e.preventDefault();
-    toggleWishlist({
-      $id: product.$id,
-      name: product.name,
-      price: product.price,
-      image_url: product.image_url
-    } as any);
   };
 
   if (loading) return (
@@ -84,43 +89,57 @@ export default function BoutiquePage() {
       </header>
 
       <main className="max-w-7xl mx-auto px-6 py-16">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-10 gap-y-16">
+        <div className="grid grid-cols-2 gap-x-3 gap-y-8 lg:hidden">
           {products.map((product) => (
-            <div key={product.$id} className="group flex flex-col">
-              {/* Contenedor de Imagen con Overlay */}
-              <div className="relative aspect-[4/5] overflow-hidden bg-white rounded-2xl shadow-sm mb-6">
-                <Link href={`/produit/${product.$id}`}>
+            <div key={product.id} className="flex flex-col">
+              <Link href={`/produit/${product.id}`} className="block">
+                <div className="relative aspect-[4/5] overflow-hidden bg-white rounded-xl mb-3">
                   <img 
                     src={product.image_url} 
                     alt={product.name}
-                    className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110"
+                    className="w-full h-full object-cover"
                   />
-                </Link>
-                
-                {/* Botones que aparecen en Hover */}
-                <div className="absolute bottom-4 left-4 right-4 flex gap-2 translate-y-12 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-500">
-                    <button 
-                      onClick={(e) => handleQuickAdd(e, product.$id)}
-                      className="flex-1 bg-black text-white py-3 rounded-full text-[9px] font-bold uppercase tracking-widest hover:bg-[#B29071] transition-colors flex items-center justify-center gap-2"
-                    >
-                      <ShoppingBag className="w-3 h-3" /> Ajouter
-                    </button>
-                    <button 
-                      onClick={(e) => handleToggleWishlist(e, product)}
-                      className={`p-3 rounded-full border transition-all ${isInWishlist(product.$id) ? "bg-[#B29071] border-[#B29071] text-white" : "bg-white/80 backdrop-blur-sm border-transparent text-black hover:bg-white"}`}
-                    >
-                      <Heart className={`w-4 h-4 ${isInWishlist(product.$id) ? "fill-current" : ""}`} />
-                    </button>
+                </div>
+              </Link>
+              <h3 className="font-serif text-[19px] uppercase leading-tight truncate">{product.name}</h3>
+              <p className="text-[11px] uppercase leading-tight mt-0.5 truncate">{product.mini_title || product.description_short || "Soin Skineno"}</p>
+              <div className="mt-2 flex items-center gap-2">
+                <button onClick={() => handleQuickAdd(product.id)} className="w-9 h-9 rounded-full bg-[#C7B186] text-white flex items-center justify-center">
+                  <ShoppingBag className="w-4 h-4" />
+                </button>
+                <div>
+                  <p className="text-[15px] leading-none font-bold">{Number(product.price).toFixed(2)} DH</p>
+                  <div className="flex items-center gap-1 mt-1">
+                    {[...Array(5)].map((_, i) => <Star key={i} className="w-3 h-3 text-black" />)}
+                    <span className="text-[10px] ml-1">{Number(product.reviews_count || 0)}</span>
+                  </div>
                 </div>
               </div>
+            </div>
+          ))}
+        </div>
 
-              {/* Información del Producto */}
-              <div className="text-center">
-                <Link href={`/produit/${product.$id}`}>
-                  <h3 className="font-serif text-xl mb-1 hover:text-[#B29071] transition-colors">{product.name}</h3>
-                  <p className="text-[10px] text-gray-400 uppercase tracking-widest mb-3">{product.format || "Format standard"}</p>
-                  <p className="text-[#B29071] font-bold tracking-widest">{Number(product.price).toFixed(2)} MAD</p>
-                </Link>
+        <div className="hidden lg:grid grid-cols-2 gap-x-8 gap-y-10">
+          {products.map((product) => (
+            <div key={product.id} className="flex flex-col">
+              <Link href={`/produit/${product.id}`} className="block">
+                <div className="relative aspect-[4/5] overflow-hidden bg-white rounded-xl mb-3">
+                  <img src={product.image_url} alt={product.name} className="w-full h-full object-cover" />
+                </div>
+              </Link>
+              <h3 className="font-serif text-[34px] uppercase leading-[0.95]">{product.name}</h3>
+              <p className="text-[13px] uppercase leading-tight mt-1">{product.mini_title || product.description_short || "Soin Skineno"}</p>
+              <div className="mt-3 flex items-center gap-3">
+                <button onClick={() => handleQuickAdd(product.id)} className="w-10 h-10 rounded-full bg-[#C7B186] text-white flex items-center justify-center">
+                  <ShoppingBag className="w-4 h-4" />
+                </button>
+                <div>
+                  <p className="text-[20px] leading-none font-bold">{Number(product.price).toFixed(2)} DH</p>
+                  <div className="flex items-center gap-1 mt-1">
+                    {[...Array(5)].map((_, i) => <Star key={i} className="w-3.5 h-3.5 text-black" />)}
+                    <span className="text-[11px] ml-1">{Number(product.reviews_count || 0)}</span>
+                  </div>
+                </div>
               </div>
             </div>
           ))}

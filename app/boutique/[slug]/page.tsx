@@ -4,19 +4,24 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { databases, DATABASE_ID } from "@/appwriteConfig"; 
 import { Query } from "appwrite";
-import Navbar from "@/components/Navbar";
-import { Loader2, Heart, ShoppingBag, ChevronRight, CheckCircle2 } from "lucide-react";
+import { Loader2, ShoppingBag, ChevronRight, CheckCircle2, Star } from "lucide-react";
 import Link from "next/link";
-// IMPORTANTE: Asegurar que apunte a la carpeta lib
 import { useCart } from "@/lib/CartContext";
-import { useWishlist } from "@/lib/WishlistContext";
 
 interface Product {
-  id: string; // ID del documento ($id)
+  id: string;
   name: string;
   price: number;
   image_url: string;
-  format: string;
+  mini_title?: string;
+  description_short?: string;
+  reviews_count?: number;
+}
+
+const categoryConfig: Record<string, { title: string; image: string }> = {
+  visage: { title: "SOINS VISAGE", image: "/img/visage.webp" },
+  corps: { title: "SOINS CORPS", image: "/img/corps.webp" },
+  cheveux: { title: "SOINS CHEVEUX", image: "/img/cheveux.webp" },
 }
 
 export default function CategoryPage() {
@@ -26,10 +31,12 @@ export default function CategoryPage() {
   const [addedNotify, setAddedNotify] = useState(false);
   
   const { addToCart } = useCart();
-  const { toggleWishlist, isInWishlist } = useWishlist();
+  const currentSlug = String(slug || "").toLowerCase();
+  const category = categoryConfig[currentSlug];
 
   useEffect(() => {
     let isMounted = true;
+    
     
     async function fetchByTag() {
       try {
@@ -57,7 +64,9 @@ export default function CategoryPage() {
               name: doc.name,
               price: Number(doc.price),
               image_url: doc.image_url,
-              format: doc.format
+              mini_title: doc.mini_title || "",
+              description_short: doc.description_short || "",
+              reviews_count: Number(doc.reviews_count || 0),
             }));
             setProducts(formatted);
           }
@@ -99,11 +108,11 @@ export default function CategoryPage() {
           <div className="flex justify-center items-center gap-2 text-[10px] tracking-[0.3em] text-[#B29071] mb-4 font-bold">
             <Link href="/" className="hover:opacity-70 transition-opacity">Accueil</Link>
             <ChevronRight className="w-3 h-3" />
-            <span className="opacity-50">{slug}</span>
+            <span className="opacity-50">{currentSlug}</span>
           </div>
-          <h1 className="text-4xl md:text-5xl font-serif mb-6 tracking-tight">{slug}</h1>
+          <h1 className="text-4xl md:text-5xl font-serif mb-6 tracking-tight">{category?.title || currentSlug}</h1>
           <p className="text-sm text-gray-500 font-light leading-relaxed tracking-[0.2em]">
-            Collection {slug}
+            Collection {category?.title || currentSlug}
           </p>
         </div>
       </header>
@@ -114,44 +123,66 @@ export default function CategoryPage() {
             <Loader2 className="w-10 h-10 animate-spin text-[#B29071]" />
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-10 gap-y-16">
-            {products.map((product) => (
-              <div key={product.id} className="group flex flex-col">
-                <div className="relative aspect-[4/5] overflow-hidden bg-white rounded-2xl shadow-sm mb-6">
-                  <Link href={`/produit/${product.id}`}>
-                    <img src={product.image_url || "/img/img1.jpg"} alt={product.name} className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110" />
+          <>
+            <div className="mb-8 md:mb-12 rounded-2xl overflow-hidden bg-white border border-gray-100">
+              <img
+                src={category?.image || "/img/visage.webp"}
+                alt={category?.title || "Collection"}
+                className="w-full h-[200px] md:h-[300px] lg:h-[360px] object-cover"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-x-3 gap-y-8 lg:hidden">
+              {products.map((product) => (
+                <div key={product.id} className="flex flex-col">
+                  <Link href={`/produit/${product.id}`} className="block">
+                    <div className="relative aspect-[4/5] overflow-hidden bg-white rounded-xl mb-3">
+                      <img src={product.image_url || "/img/img1.jpg"} alt={product.name} className="w-full h-full object-cover" />
+                    </div>
                   </Link>
-                  <div className="absolute bottom-4 left-4 right-4 flex gap-2 translate-y-12 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-500">
-                    {/* CORRECCIÓN: Enviamos solo el ID string */}
-                    <button 
-                      onClick={() => handleQuickAdd(product.id)} 
-                      className="flex-1 bg-black text-white py-3 rounded-full text-[9px] font-bold uppercase tracking-widest hover:bg-[#B29071] transition-colors flex items-center justify-center gap-2"
-                    >
-                      <ShoppingBag className="w-3 h-3" /> Ajouter
+                  <h3 className="font-serif text-[19px] uppercase leading-tight truncate">{product.name}</h3>
+                  <p className="text-[11px] uppercase leading-tight mt-0.5 truncate">{product.mini_title || product.description_short || "Soin Skineno"}</p>
+                  <div className="mt-2 flex items-center gap-2">
+                    <button onClick={() => handleQuickAdd(product.id)} className="w-9 h-9 rounded-full bg-[#C7B186] text-white flex items-center justify-center">
+                      <ShoppingBag className="w-4 h-4" />
                     </button>
-                    <button 
-                      onClick={() => toggleWishlist({
-                        $id: product.id,
-                        name: product.name,
-                        price: product.price,
-                        image_url: product.image_url
-                      } as any)} 
-                      className={`p-3 rounded-full border transition-all ${isInWishlist(product.id) ? "bg-[#B29071] border-[#B29071] text-white" : "bg-white/80 backdrop-blur-sm border-transparent text-black hover:bg-white"}`}
-                    >
-                      <Heart className={`w-4 h-4 ${isInWishlist(product.id) ? "fill-current" : ""}`} />
-                    </button>
+                    <div>
+                      <p className="text-[15px] leading-none font-bold">{Number(product.price).toFixed(2)} DH</p>
+                      <div className="flex items-center gap-1 mt-1">
+                        {[...Array(5)].map((_, i) => <Star key={i} className="w-3 h-3 text-black" />)}
+                        <span className="text-[10px] ml-1">{Number(product.reviews_count || 0)}</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
-                <div className="text-center">
-                  <Link href={`/produit/${product.id}`}>
-                    <h3 className="font-serif text-xl mb-1">{product.name}</h3>
-                    <p className="text-[10px] text-gray-400 uppercase tracking-widest mb-3">{product.format || "Format standard"}</p>
-                    <p className="text-[#B29071] font-bold tracking-widest">{product.price.toFixed(2)} MAD</p>
+              ))}
+            </div>
+
+            <div className="hidden lg:grid grid-cols-4 gap-x-6 gap-y-10">
+              {products.map((product) => (
+                <div key={product.id} className="flex flex-col">
+                  <Link href={`/produit/${product.id}`} className="block">
+                    <div className="relative aspect-[4/5] overflow-hidden bg-white rounded-xl mb-3">
+                      <img src={product.image_url || "/img/img1.jpg"} alt={product.name} className="w-full h-full object-cover" />
+                    </div>
                   </Link>
+                  <h3 className="font-serif text-[26px] uppercase leading-[0.95]">{product.name}</h3>
+                  <p className="text-[12px] uppercase leading-tight mt-1">{product.mini_title || product.description_short || "Soin Skineno"}</p>
+                  <div className="mt-3 flex items-center gap-3">
+                    <button onClick={() => handleQuickAdd(product.id)} className="w-10 h-10 rounded-full bg-[#C7B186] text-white flex items-center justify-center">
+                      <ShoppingBag className="w-4 h-4" />
+                    </button>
+                    <div>
+                      <p className="text-[18px] leading-none font-bold">{Number(product.price).toFixed(2)} DH</p>
+                      <div className="flex items-center gap-1 mt-1">
+                        {[...Array(5)].map((_, i) => <Star key={i} className="w-3.5 h-3.5 text-black" />)}
+                        <span className="text-[11px] ml-1">{Number(product.reviews_count || 0)}</span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          </>
         )}
         {!loading && products.length === 0 && (
           <div className="text-center py-20 text-gray-400 italic">Aucun produit dans cette catégorie pour le moment.</div>

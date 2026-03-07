@@ -7,7 +7,7 @@ import { Query } from "appwrite";
 import { ChevronLeft, ChevronRight, Loader2, ShoppingBag, Star } from "lucide-react";
 import Link from "next/link";
 
-interface Product { id: string; name: string; price: number; image_url: string; format?: string; }
+interface Product { id: string; name: string; price: number; image_url: string; mini_title?: string; miniTitle?: string; description_short?: string; }
 interface Slide { $id: string; title: string; subtitle: string; description: string; image1_url: string; image2_url: string; product_id: string | null; }
 
 export default function Home() {
@@ -38,7 +38,9 @@ export default function Home() {
             name: doc.name,
             price: doc.price,
             image_url: doc.image_url,
-            format: doc.format || "",
+            mini_title: doc.mini_title || doc.miniTitle || "",
+            miniTitle: doc.miniTitle || doc.mini_title || "",
+            description_short: doc.description_short || "",
           }));
           setProducts(formattedProducts);
         }
@@ -201,8 +203,8 @@ export default function Home() {
             {products.map((item) => (
               <div key={item.id} className="snap-start shrink-0 w-[82vw] flex flex-col text-left">
                 <Link href={`/produit/${item.id}`} className="block">
-                  <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-black mb-3 block">Meilleure Vente</span>
-                  <div className="w-full aspect-[4/5] overflow-hidden bg-[#FAFAFA] mb-5 relative rounded-2xl shadow-sm">
+                  <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-black mb-2 block">Meilleure Vente</span>
+                  <div className="w-full aspect-[4/5] overflow-hidden bg-[#FAFAFA] mb-3 relative rounded-2xl shadow-sm">
                     <img
                       src={item.image_url || "/img/img1.jpg"}
                       className="w-full h-full object-cover object-center"
@@ -210,19 +212,19 @@ export default function Home() {
                     />
                   </div>
                 </Link>
-                <h4 className="text-3xl font-serif tracking-tight text-black uppercase leading-none">{item.name}</h4>
-                <p className="text-[13px] text-black mt-1 uppercase tracking-wide">{item.format || "Soin Skineno"}</p>
-                <div className="mt-3 flex items-center gap-3">
-                  <button type="button" className="w-10 h-10 rounded-full bg-[#C7B186] text-white flex items-center justify-center">
-                    <ShoppingBag className="w-4.5 h-4.5" />
+                <h4 className="text-[22px] font-serif tracking-tight text-black uppercase leading-tight truncate">{item.name}</h4>
+                <p className="text-[11px] text-black mt-0.5 uppercase tracking-wide truncate">{item.mini_title || item.miniTitle || item.description_short || "Soin Skineno"}</p>
+                <div className="mt-2 flex items-center gap-2">
+                  <button type="button" className="w-9 h-9 rounded-full bg-[#C7B186] text-white flex items-center justify-center">
+                    <ShoppingBag className="w-4 h-4" />
                   </button>
                   <div>
-                    <p className="text-[18px] leading-none font-bold text-black tracking-tight">{Number(item.price).toFixed(2)} DH</p>
-                    <div className="flex items-center gap-1 mt-1.5">
+                    <p className="text-[15px] leading-none font-bold text-black tracking-tight">{Number(item.price).toFixed(2)} DH</p>
+                    <div className="flex items-center gap-1 mt-1">
                       {[...Array(5)].map((_, i) => (
-                        <Star key={i} className="w-3.5 h-3.5 text-black" />
+                        <Star key={i} className="w-3 h-3 text-black" />
                       ))}
-                      <span className="text-[12px] text-black ml-1">0</span>
+                      <span className="text-[10px] text-black ml-1">0</span>
                     </div>
                   </div>
                 </div>
@@ -242,10 +244,17 @@ export default function Home() {
                   alt={item.name} 
                 />
               </div>
-              <h4 className="text-lg font-serif tracking-wide text-black">{item.name}</h4>
-              <p className="text-xs text-[#B29071] mt-2 font-bold uppercase tracking-widest">
-                {Number(item.price).toFixed(2)} MAD
-              </p>
+              <h4 className="text-xl font-serif tracking-wide text-black uppercase leading-tight truncate">{item.name}</h4>
+              <p className="text-[11px] text-black mt-1 uppercase tracking-wide truncate">{item.mini_title || item.miniTitle || item.description_short || "Soin Skineno"}</p>
+              <div className="mt-2">
+                <p className="text-[15px] leading-none font-bold text-black tracking-tight">{Number(item.price).toFixed(2)} DH</p>
+                <div className="flex items-center justify-center gap-1 mt-1.5">
+                  {[...Array(5)].map((_, i) => (
+                    <Star key={i} className="w-3 h-3 text-black" />
+                  ))}
+                  <span className="text-[10px] text-black ml-1">0</span>
+                </div>
+              </div>
             </Link>
           ))}
         </div>

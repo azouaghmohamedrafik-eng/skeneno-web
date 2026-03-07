@@ -564,8 +564,13 @@ export default function Navbar() {
             </button>
           </div>
           <div className="p-6">
+            <Link href="/boutique" onClick={() => setIsMobileMenuOpen(false)} className="block py-4 border-b text-[12px] font-bold">TOUS NOS PRODUITS</Link>
+            <Link href="/boutique/Visage" onClick={() => setIsMobileMenuOpen(false)} className="block py-4 border-b text-[12px] font-bold">VISAGE</Link>
+            <Link href="/boutique/Corps" onClick={() => setIsMobileMenuOpen(false)} className="block py-4 border-b text-[12px] font-bold">CORPS</Link>
+            <Link href="/boutique/Cheveux" onClick={() => setIsMobileMenuOpen(false)} className="block py-4 border-b text-[12px] font-bold">CHEVEUX</Link>
+            <Link href="/offres" onClick={() => setIsMobileMenuOpen(false)} className="block py-4 border-b text-[12px] font-bold">NOS OFFRES</Link>
             {user ? (
-              <div className="mb-4 space-y-3">
+              <div className="mt-10 pt-6 border-t border-gray-200 space-y-3">
                 <Link href="/compte" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center gap-2 py-3 border-b text-[11px] font-bold uppercase">
                   <User className="w-4 h-4" /> Mon Compte
                 </Link>
@@ -579,15 +584,10 @@ export default function Navbar() {
                 </button>
               </div>
             ) : (
-              <Link href="/login" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center gap-2 py-3 border-b text-[11px] font-bold uppercase">
+              <Link href="/login" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center gap-2 py-3 mt-10 pt-6 border-t border-b border-gray-200 text-[11px] font-bold uppercase">
                 <User className="w-4 h-4" /> Se connecter
               </Link>
             )}
-            <Link href="/boutique" onClick={() => setIsMobileMenuOpen(false)} className="block py-4 border-b text-[12px] font-bold">TOUS NOS PRODUITS</Link>
-            <Link href="/boutique/Visage" onClick={() => setIsMobileMenuOpen(false)} className="block py-4 border-b text-[12px] font-bold">VISAGE</Link>
-            <Link href="/boutique/Corps" onClick={() => setIsMobileMenuOpen(false)} className="block py-4 border-b text-[12px] font-bold">CORPS</Link>
-            <Link href="/boutique/Cheveux" onClick={() => setIsMobileMenuOpen(false)} className="block py-4 border-b text-[12px] font-bold">CHEVEUX</Link>
-            <Link href="/offres" onClick={() => setIsMobileMenuOpen(false)} className="block py-4 border-b text-[12px] font-bold">NOS OFFRES</Link>
           </div>
         </div>
       </div>
