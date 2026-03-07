@@ -388,11 +388,11 @@ export default function Navbar() {
                 <User className="w-4 h-4" /> Se connecter
               </Link>
             )}
-            <Link href="/boutique" className="block py-4 border-b text-[12px] font-bold">TOUS NOS PRODUITS</Link>
-            <Link href="/boutique/Visage" className="block py-4 border-b text-[12px] font-bold">VISAGE</Link>
-            <Link href="/boutique/Corps" className="block py-4 border-b text-[12px] font-bold">CORPS</Link>
-            <Link href="/boutique/Cheveux" className="block py-4 border-b text-[12px] font-bold">CHEVEUX</Link>
-            <Link href="/offres" className="block py-4 border-b text-[12px] font-bold">NOS OFFRES</Link>
+            <Link href="/boutique" onClick={() => setIsMobileMenuOpen(false)} className="block py-4 border-b text-[12px] font-bold">TOUS NOS PRODUITS</Link>
+            <Link href="/boutique/Visage" onClick={() => setIsMobileMenuOpen(false)} className="block py-4 border-b text-[12px] font-bold">VISAGE</Link>
+            <Link href="/boutique/Corps" onClick={() => setIsMobileMenuOpen(false)} className="block py-4 border-b text-[12px] font-bold">CORPS</Link>
+            <Link href="/boutique/Cheveux" onClick={() => setIsMobileMenuOpen(false)} className="block py-4 border-b text-[12px] font-bold">CHEVEUX</Link>
+            <Link href="/offres" onClick={() => setIsMobileMenuOpen(false)} className="block py-4 border-b text-[12px] font-bold">NOS OFFRES</Link>
           </div>
         </div>
       </div>
