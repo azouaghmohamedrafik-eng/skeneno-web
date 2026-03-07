@@ -27,9 +27,17 @@ interface Product {
   price: number; 
   stock: number; 
   image_url: string;
+  image_url_2?: string;
+  image_url_3?: string;
+  image_url_4?: string;
+  mini_title?: string;
+  description_short?: string;
+  description_long?: string;
   description: string; 
   format: string; 
   ingredients: string; 
+  ingredients_panel_title?: string;
+  ingredients_panel_content?: string;
   category_id: string | null;
   is_offer: boolean; 
   is_gift: boolean;   
@@ -53,12 +61,12 @@ export default function InventoryPage() {
   const [currentId, setCurrentId] = useState<string | null>(null);
   
   const [form, setForm] = useState({ 
-    name: "", price: "", format: "", desc: "", ing: "", cat: "", img: "",
+    name: "", price: "", format: "", miniTitle: "", desc: "", descShort: "", descLong: "", ing: "", ingredientsTitle: "", ingredientsContent: "", cat: "", img: "", img2: "", img3: "", img4: "",
     isOffer: false, isGift: false, isVisage: false, isCorps: false, isCheveux: false, isSpecial: false,
     isSuggested: false // NUEVO ESTADO
   });
   
-  const [uploading, setUploading] = useState(false);
+  const [uploading, setUploading] = useState<{ [key: string]: boolean }>({ img: false, img2: false, img3: false, img4: false });
   const [newCatName, setNewCatName] = useState("");
   const [isEditingCat, setIsEditingCat] = useState(false);
   const [currentCatId, setCurrentCatId] = useState<string | null>(null);
@@ -82,9 +90,17 @@ export default function InventoryPage() {
         price: d.price,
         stock: d.stock || 0,
         image_url: d.image_url,
+        image_url_2: (d as any).image_url_2 || "",
+        image_url_3: (d as any).image_url_3 || "",
+        image_url_4: (d as any).image_url_4 || "",
+        mini_title: (d as any).mini_title || "",
+        description_short: (d as any).description_short || "",
+        description_long: (d as any).description_long || "",
         description: d.description,
         format: d.format,
         ingredients: d.ingredients,
+        ingredients_panel_title: (d as any).ingredients_panel_title || "",
+        ingredients_panel_content: (d as any).ingredients_panel_content || "",
         category_id: d.category_id,
         is_offer: d.is_offer,
         is_gift: d.is_gift,
@@ -132,22 +148,22 @@ export default function InventoryPage() {
   };
 
   // --- PRODUCTOS ---
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, key: "img" | "img2" | "img3" | "img4") => {
     try {
-      setUploading(true);
+      setUploading(prev => ({ ...prev, [key]: true }));
       const file = e.target.files?.[0];
       if (!file) return;
 
       const res = await storage.createFile(BUCKET_ID, ID.unique(), file);
       const url = `${process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT}/storage/buckets/${BUCKET_ID}/files/${res.$id}/view?project=${process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID}`;
       
-      setForm({ ...form, img: url });
+      setForm(prev => ({ ...prev, [key]: url }));
       notify("Image téléchargée !", "success");
     } catch (err) { 
       console.error(err);
       notify("Erreur d'upload", "error"); 
     }
-    finally { setUploading(false); }
+    finally { setUploading(prev => ({ ...prev, [key]: false })); }
   };
 
   const handleSaveProduct = async (e: React.FormEvent) => {
@@ -158,9 +174,17 @@ export default function InventoryPage() {
       name: form.name, 
       price: parseFloat(form.price), 
       image_url: form.img || null, 
+      image_url_2: form.img2 || null,
+      image_url_3: form.img3 || null,
+      image_url_4: form.img4 || null,
+      mini_title: form.miniTitle || "",
+      description_short: form.descShort || "",
+      description_long: form.descLong || "",
       description: form.desc, 
       format: form.format, 
       ingredients: form.ing,
+      ingredients_panel_title: form.ingredientsTitle || "",
+      ingredients_panel_content: form.ingredientsContent || "",
       category_id: form.cat || null,
       is_offer: form.isOffer,
       is_gift: form.isGift,
@@ -179,7 +203,7 @@ export default function InventoryPage() {
       } else {
         await databases.createDocument(DATABASE_ID, 'products', ID.unique(), data);
       }
-      setForm({ name: "", price: "", format: "", desc: "", ing: "", cat: "", img: "", isOffer: false, isGift: false, isVisage: false, isCorps: false, isCheveux: false, isSpecial: false, isSuggested: false });
+      setForm({ name: "", price: "", format: "", miniTitle: "", desc: "", descShort: "", descLong: "", ing: "", ingredientsTitle: "", ingredientsContent: "", cat: "", img: "", img2: "", img3: "", img4: "", isOffer: false, isGift: false, isVisage: false, isCorps: false, isCheveux: false, isSpecial: false, isSuggested: false });
       setIsEditing(false);
       fetchData();
       notify("Produit enregistré !", "success");
@@ -253,8 +277,11 @@ export default function InventoryPage() {
                 <input type="text" placeholder="Format" value={form.format} onChange={e => setForm({...form, format: e.target.value})} className="w-full border p-3 rounded text-sm outline-none focus:border-[#B29071]" />
                 <p className="text-[9px] text-gray-400 italic px-1">Ex: 50ml, 100g, etc.</p>
               </div>
-              
               <div className="space-y-1">
+                <input type="text" placeholder="Mini titre" value={form.miniTitle} onChange={e => setForm({...form, miniTitle: e.target.value})} className="w-full border p-3 rounded text-sm outline-none focus:border-[#B29071]" />
+                <p className="text-[9px] text-gray-400 italic px-1">Ex: Crème nourrissante visage</p>
+              </div>
+              <div className="space-y-1 md:col-span-2">
                 <select value={form.cat} onChange={e => setForm({...form, cat: e.target.value})} className="w-full border p-3 rounded text-sm outline-none focus:border-[#B29071] bg-white">
                     <option value="">Catégorie</option>
                     {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -263,14 +290,38 @@ export default function InventoryPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-1">
                 <label className="flex items-center gap-2 w-full border p-3 rounded text-sm cursor-pointer hover:bg-gray-50 transition-colors">
-                    {uploading ? <Loader2 className="w-4 h-4 animate-spin"/> : <Upload className="w-4 h-4 text-[#B29071]"/>}
-                    <span className="text-gray-500 truncate">{form.img ? "Image chargée ✓" : "Charger una photo"}</span>
-                    <input type="file" accept="image/*" onChange={handleFileUpload} className="hidden" />
+                    {uploading.img ? <Loader2 className="w-4 h-4 animate-spin"/> : <Upload className="w-4 h-4 text-[#B29071]"/>}
+                    <span className="text-gray-500 truncate">{form.img ? "Image 1 chargée ✓" : "Charger image 1"}</span>
+                    <input type="file" accept="image/*" onChange={(e) => handleFileUpload(e, "img")} className="hidden" />
                 </label>
                 <p className="text-[9px] text-gray-400 italic px-1 text-center">Recommandé : Fond blanc, format 4:5</p>
+              </div>
+              <div className="space-y-1">
+                <label className="flex items-center gap-2 w-full border p-3 rounded text-sm cursor-pointer hover:bg-gray-50 transition-colors">
+                    {uploading.img2 ? <Loader2 className="w-4 h-4 animate-spin"/> : <Upload className="w-4 h-4 text-[#B29071]"/>}
+                    <span className="text-gray-500 truncate">{form.img2 ? "Image 2 chargée ✓" : "Charger image 2 (optionnel)"}</span>
+                    <input type="file" accept="image/*" onChange={(e) => handleFileUpload(e, "img2")} className="hidden" />
+                </label>
+                <p className="text-[9px] text-gray-400 italic px-1 text-center">Optionnel pour galerie</p>
+              </div>
+              <div className="space-y-1">
+                <label className="flex items-center gap-2 w-full border p-3 rounded text-sm cursor-pointer hover:bg-gray-50 transition-colors">
+                    {uploading.img3 ? <Loader2 className="w-4 h-4 animate-spin"/> : <Upload className="w-4 h-4 text-[#B29071]"/>}
+                    <span className="text-gray-500 truncate">{form.img3 ? "Image 3 chargée ✓" : "Charger image 3 (optionnel)"}</span>
+                    <input type="file" accept="image/*" onChange={(e) => handleFileUpload(e, "img3")} className="hidden" />
+                </label>
+                <p className="text-[9px] text-gray-400 italic px-1 text-center">Optionnel pour galerie</p>
+              </div>
+              <div className="space-y-1">
+                <label className="flex items-center gap-2 w-full border p-3 rounded text-sm cursor-pointer hover:bg-gray-50 transition-colors">
+                    {uploading.img4 ? <Loader2 className="w-4 h-4 animate-spin"/> : <Upload className="w-4 h-4 text-[#B29071]"/>}
+                    <span className="text-gray-500 truncate">{form.img4 ? "Image 4 chargée ✓" : "Charger image 4 (optionnel)"}</span>
+                    <input type="file" accept="image/*" onChange={(e) => handleFileUpload(e, "img4")} className="hidden" />
+                </label>
+                <p className="text-[9px] text-gray-400 italic px-1 text-center">Optionnel pour galerie</p>
               </div>
             </div>
 
@@ -314,19 +365,35 @@ export default function InventoryPage() {
             </div>
 
             <div className="space-y-1">
+                <textarea placeholder="Description courte..." value={form.descShort} onChange={e => setForm({...form, descShort: e.target.value})} className="w-full border p-3 rounded text-sm h-20 outline-none focus:border-[#B29071] resize-none" />
+                <p className="text-[9px] text-gray-400 italic px-1">Texte court visible au-dessus de “voir plus”</p>
+            </div>
+            <div className="space-y-1">
                 <textarea placeholder="Description..." value={form.desc} onChange={e => setForm({...form, desc: e.target.value})} className="w-full border p-3 rounded text-sm h-24 outline-none focus:border-[#B29071] resize-none" />
                 <p className="text-[9px] text-gray-400 italic px-1">Présentation détaillée pour le client</p>
+            </div>
+            <div className="space-y-1">
+                <textarea placeholder="Description longue..." value={form.descLong} onChange={e => setForm({...form, descLong: e.target.value})} className="w-full border p-3 rounded text-sm h-24 outline-none focus:border-[#B29071] resize-none" />
+                <p className="text-[9px] text-gray-400 italic px-1">Section inférieure après clic “voir plus”</p>
             </div>
             <div className="space-y-1">
                 <textarea placeholder="Ingrédients..." value={form.ing} onChange={e => setForm({...form, ing: e.target.value})} className="w-full border p-3 rounded text-sm h-24 outline-none focus:border-[#B29071] resize-none" />
                 <p className="text-[9px] text-gray-400 italic px-1">Liste des composants (norme INCI)</p>
             </div>
+            <div className="space-y-1">
+                <input type="text" placeholder="Titre panel ingrédients..." value={form.ingredientsTitle} onChange={e => setForm({...form, ingredientsTitle: e.target.value})} className="w-full border p-3 rounded text-sm outline-none focus:border-[#B29071]" />
+                <p className="text-[9px] text-gray-400 italic px-1">Ex: Composition complète</p>
+            </div>
+            <div className="space-y-1">
+                <textarea placeholder="Contenu panel ingrédients..." value={form.ingredientsContent} onChange={e => setForm({...form, ingredientsContent: e.target.value})} className="w-full border p-3 rounded text-sm h-24 outline-none focus:border-[#B29071] resize-none" />
+                <p className="text-[9px] text-gray-400 italic px-1">Texte affiché dans le panneau latéral</p>
+            </div>
 
             <div className="flex justify-end gap-3">
               {isEditing && (
-                <button type="button" onClick={() => {setIsEditing(false); setForm({name:"", price:"", format:"", desc:"", ing:"", cat:"", img:"", isOffer: false, isGift: false, isVisage: false, isCorps: false, isCheveux: false, isSpecial: false, isSuggested: false})}} className="px-6 py-3 text-xs font-bold uppercase text-gray-400">Annuler</button>
+                <button type="button" onClick={() => {setIsEditing(false); setForm({name:"", price:"", format:"", miniTitle:"", desc:"", descShort:"", descLong:"", ing:"", ingredientsTitle:"", ingredientsContent:"", cat:"", img:"", img2:"", img3:"", img4:"", isOffer: false, isGift: false, isVisage: false, isCorps: false, isCheveux: false, isSpecial: false, isSuggested: false})}} className="px-6 py-3 text-xs font-bold uppercase text-gray-400">Annuler</button>
               )}
-              <button type="submit" disabled={loading || uploading} className="bg-black text-white px-10 py-3 rounded text-xs font-bold uppercase tracking-widest hover:bg-[#B29071] transition disabled:opacity-50">
+              <button type="submit" disabled={loading || Object.values(uploading).some(Boolean)} className="bg-black text-white px-10 py-3 rounded text-xs font-bold uppercase tracking-widest hover:bg-[#B29071] transition disabled:opacity-50">
                 {loading ? <Loader2 className="w-4 h-4 animate-spin mx-auto"/> : "Enregistrer"}
               </button>
             </div>
@@ -398,10 +465,18 @@ export default function InventoryPage() {
                         name:p.name, 
                         price:p.price.toString(), 
                         format:p.format || "", 
+                        miniTitle: p.mini_title || "",
                         desc:p.description || "", 
+                        descShort: p.description_short || "",
+                        descLong: p.description_long || "",
                         ing:p.ingredients || "", 
+                        ingredientsTitle: p.ingredients_panel_title || "",
+                        ingredientsContent: p.ingredients_panel_content || "",
                         cat:p.category_id || "", 
                         img:p.image_url, 
+                        img2:p.image_url_2 || "",
+                        img3:p.image_url_3 || "",
+                        img4:p.image_url_4 || "",
                         isOffer: p.is_offer, 
                         isGift: p.is_gift, 
                         isVisage: p.is_visage, 

@@ -1,26 +1,33 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "next/navigation";
-// Importamos la configuración de Appwrite
 import { databases, DATABASE_ID } from "@/appwriteConfig";
-import Navbar from "@/components/Navbar";
-import { Loader2, Minus, Plus, ShoppingBag, ChevronRight, CheckCircle2, Heart } from "lucide-react";
-// CORRECCIÓN: Link de next/link
+import { Loader2, Minus, Plus, ShoppingBag, ChevronRight, CheckCircle2, Heart, ChevronLeft, X, Gift, Truck, Star } from "lucide-react";
 import Link from "next/link";
-// IMPORTANTE: Asegúrate de que esta ruta sea la correcta (@/lib/CartContext)
 import { useCart } from "@/lib/CartContext";
 import { useWishlist } from "@/lib/WishlistContext";
+import { Query } from "appwrite";
 
 interface Product {
-  id: string; // En Appwrite los IDs son strings ($id)
+  id: string;
   name: string; 
   price: number; 
-  stock: number; // Propiedad de stock
+  stock: number;
   image_url: string;
+  image_url_2?: string;
+  image_url_3?: string;
+  image_url_4?: string;
+  mini_title?: string;
+  description_short?: string;
+  description_long?: string;
   description: string; 
   format: string; 
   ingredients: string;
+  ingredients_panel_title?: string;
+  ingredients_panel_content?: string;
+  rating?: number;
+  reviews_count?: number;
 }
 
 export default function ProductPage() {
@@ -31,19 +38,22 @@ export default function ProductPage() {
   const [loading, setLoading] = useState(true);
   const [quantity, setQuantity] = useState(1);
   const [addedNotify, setAddedNotify] = useState(false);
+  const [activeImage, setActiveImage] = useState("");
+  const [isIngredientsOpen, setIsIngredientsOpen] = useState(false);
+  const [isDeliveryOpen, setIsDeliveryOpen] = useState(false);
+  const [packagingInfo, setPackagingInfo] = useState<any>(null);
+  const [deliverySettings, setDeliverySettings] = useState<any>(null);
+  const [deliveryRates, setDeliveryRates] = useState<any[]>([]);
+  const detailsRef = useRef<HTMLDivElement | null>(null);
+  const detailsTitleRef = useRef<HTMLHeadingElement | null>(null);
+  const mainCtaRef = useRef<HTMLDivElement | null>(null);
+  const [isMainCtaVisible, setIsMainCtaVisible] = useState(true);
 
-  // --- LÓGICA DE CONTROL DE STOCK PROFESIONAL (SOLUCIÓN ENCONTRADA) ---
-  
-  // Buscamos el producto en el carrito usando 'product_id' que es como lo guarda tu CartContext
   const cartItem = cart?.find((item: any) => String(item.product_id) === String(id));
-  
   const quantityInCart = cartItem ? Number(cartItem.quantity) : 0;
   const stockTotal = product ? Number(product.stock) : 0;
-  
-  // Cálculo real de lo que queda disponible para este usuario
   const availableToAdd = Math.max(0, stockTotal - quantityInCart);
 
-  // Sincronización automática del selector
   useEffect(() => {
     if (availableToAdd <= 0) {
       setQuantity(0);
@@ -55,22 +65,47 @@ export default function ProductPage() {
   }, [availableToAdd, quantity]);
 
   useEffect(() => {
-    async function fetchProduct() {
+    async function fetchData() {
       try {
-        const doc: any = await databases.getDocument(DATABASE_ID, 'products', id as string);
-        
-        if (doc) {
+        const [doc, pkgRes, deliveryRes, ratesRes] = await Promise.all([
+          databases.getDocument(DATABASE_ID, "products", id as string),
+          databases.listDocuments(DATABASE_ID, "packaging_settings", [Query.limit(1)]),
+          databases.listDocuments(DATABASE_ID, "delivery_settings", [Query.limit(1)]),
+          databases.listDocuments(DATABASE_ID, "delivery_rates", [Query.orderAsc("sort_order"), Query.limit(200)]),
+        ]);
+
+        if (doc as any) {
+          const productDoc = doc as any;
           setProduct({
-            id: doc.$id,
-            name: doc.name,
-            price: Number(doc.price),
-            stock: Number(doc.stock || 0),
-            image_url: doc.image_url,
-            description: doc.description,
-            format: doc.format,
-            ingredients: doc.ingredients
+            id: productDoc.$id,
+            name: productDoc.name,
+            price: Number(productDoc.price),
+            stock: Number(productDoc.stock || 0),
+            image_url: productDoc.image_url,
+            image_url_2: productDoc.image_url_2 || "",
+            image_url_3: productDoc.image_url_3 || "",
+            image_url_4: productDoc.image_url_4 || "",
+            mini_title: productDoc.mini_title || "",
+            description_short: productDoc.description_short || "",
+            description_long: productDoc.description_long || "",
+            description: productDoc.description,
+            format: productDoc.format,
+            ingredients: productDoc.ingredients,
+            ingredients_panel_title: productDoc.ingredients_panel_title || "",
+            ingredients_panel_content: productDoc.ingredients_panel_content || "",
+            rating: Number(productDoc.rating || 0),
+            reviews_count: Number(productDoc.reviews_count || 0)
           });
         }
+        if (pkgRes.documents.length > 0) {
+          setPackagingInfo(pkgRes.documents[0]);
+        }
+        if (deliveryRes.documents.length > 0) {
+          setDeliverySettings(deliveryRes.documents[0]);
+        } else {
+          setDeliverySettings(null);
+        }
+        setDeliveryRates(ratesRes.documents.filter((r: any) => r.active !== false));
       } catch (error) {
         console.error("Error fetching product:", error);
       } finally {
@@ -78,8 +113,45 @@ export default function ProductPage() {
       }
     }
     
-    if (id) fetchProduct();
+    if (id) fetchData();
   }, [id]);
+
+  const galleryImages = useMemo(() => {
+    if (!product) return [];
+    return [product.image_url, product.image_url_2, product.image_url_3, product.image_url_4].filter(Boolean) as string[];
+  }, [product]);
+
+  useEffect(() => {
+    if (galleryImages.length > 0) {
+      setActiveImage(galleryImages[0]);
+    }
+  }, [galleryImages]);
+
+  useEffect(() => {
+    if (isIngredientsOpen || isDeliveryOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "unset";
+    }
+    return () => {
+      document.body.style.overflow = "unset";
+    };
+  }, [isIngredientsOpen, isDeliveryOpen]);
+
+  useEffect(() => {
+    if (!mainCtaRef.current) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setIsMainCtaVisible(entry.isIntersecting);
+      },
+      {
+        threshold: 0.35,
+        rootMargin: "-10% 0px -10% 0px",
+      }
+    );
+    observer.observe(mainCtaRef.current);
+    return () => observer.disconnect();
+  }, [loading, product?.id]);
 
   const handleAddToCart = async () => {
     if (product && availableToAdd > 0 && quantity > 0) {
@@ -91,6 +163,43 @@ export default function ProductPage() {
         console.error("Error al añadir al carrito:", error);
       }
     }
+  };
+
+  const scrollToDetails = () => {
+    if (!detailsTitleRef.current) return;
+    const startY = window.scrollY;
+    const targetY = detailsTitleRef.current.getBoundingClientRect().top + window.scrollY - 190;
+    const distance = targetY - startY;
+    const duration = 1600;
+    let startTime: number | null = null;
+    const easeInOutCubic = (t: number) =>
+      t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+    const animate = (timestamp: number) => {
+      if (startTime === null) startTime = timestamp;
+      const elapsed = timestamp - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      const eased = easeInOutCubic(progress);
+      window.scrollTo(0, startY + distance * eased);
+      if (progress < 1) requestAnimationFrame(animate);
+    };
+    requestAnimationFrame(animate);
+  };
+  const starsCount = Math.max(0, Math.min(5, Math.round(Number(product?.rating || 0))));
+  const shouldShowDelivery = deliverySettings ? deliverySettings.enabled !== false : packagingInfo?.delivery_panel_enabled !== false;
+  const shouldShowStickyCta = !isMainCtaVisible && !isIngredientsOpen && !isDeliveryOpen;
+
+  const openPrevImage = () => {
+    if (galleryImages.length <= 1) return;
+    const idx = galleryImages.findIndex((img) => img === activeImage);
+    const prev = idx <= 0 ? galleryImages.length - 1 : idx - 1;
+    setActiveImage(galleryImages[prev]);
+  };
+
+  const openNextImage = () => {
+    if (galleryImages.length <= 1) return;
+    const idx = galleryImages.findIndex((img) => img === activeImage);
+    const next = idx >= galleryImages.length - 1 ? 0 : idx + 1;
+    setActiveImage(galleryImages[next]);
   };
 
   if (loading) return (
@@ -122,19 +231,52 @@ export default function ProductPage() {
         <span className="text-black">{product.name}</span>
       </div>
 
-      <main className="max-w-7xl mx-auto px-6 py-12 grid grid-cols-1 md:grid-cols-2 gap-16">
-        <div className="bg-[#F9F9F9] rounded-2xl overflow-hidden aspect-[4/5] shadow-sm">
-          <img 
-            src={product.image_url || "/img/placeholder.jpg"} 
-            alt={product.name} 
-            className="w-full h-full object-cover" 
-          />
+      <main className="max-w-7xl mx-auto px-6 py-10 grid grid-cols-1 md:grid-cols-[58%_42%] gap-12">
+        <div className="grid grid-cols-[64px_1fr] gap-4">
+          <div className="space-y-3">
+            {galleryImages.map((img, i) => (
+              <button
+                key={`${img}-${i}`}
+                type="button"
+                onClick={() => setActiveImage(img)}
+                className={`w-14 h-14 rounded-lg overflow-hidden border ${activeImage === img ? "border-black" : "border-gray-100"}`}
+              >
+                <img src={img} alt={`${product.name} ${i + 1}`} className="w-full h-full object-cover" />
+              </button>
+            ))}
+          </div>
+          <div className="bg-[#F9F9F9] rounded-2xl overflow-hidden aspect-[4/5] shadow-sm relative">
+            <img 
+              src={activeImage || product.image_url || "/img/placeholder.jpg"} 
+              alt={product.name} 
+              className="w-full h-full object-cover" 
+            />
+            {galleryImages.length > 1 && (
+              <>
+                <button onClick={openPrevImage} type="button" className="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-white/80 border border-white flex items-center justify-center hover:bg-white transition">
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <button onClick={openNextImage} type="button" className="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-white/80 border border-white flex items-center justify-center hover:bg-white transition">
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </>
+            )}
+          </div>
         </div>
 
         <div className="flex flex-col justify-center space-y-8">
-          <div>
-            <h1 className="text-4xl md:text-5xl font-serif mb-2">{product.name}</h1>
-            <p className="text-[#B29071] font-bold text-xl tracking-widest">
+          <div className="space-y-3">
+            {product.mini_title && (
+              <p className="text-[10px] text-gray-500 uppercase tracking-[0.2em] font-bold">{product.mini_title}</p>
+            )}
+            <h1 className="text-3xl md:text-4xl font-serif uppercase tracking-tight leading-tight">{product.name}</h1>
+            <div className="flex items-center gap-1">
+              {[...Array(5)].map((_, idx) => (
+                <Star key={idx} className={`w-3.5 h-3.5 ${idx < starsCount ? "text-black fill-black" : "text-gray-200"}`} />
+              ))}
+              {!!product.reviews_count && <span className="text-[10px] text-gray-400 ml-1">{product.reviews_count}</span>}
+            </div>
+            <p className="text-[#B29071] font-bold text-xl tracking-widest pt-1">
               {Number(product.price).toFixed(2)} MAD
             </p>
             <div className="flex flex-wrap gap-3 mt-4">
@@ -154,19 +296,47 @@ export default function ProductPage() {
             </div>
           </div>
 
-          <div className="space-y-4 border-t border-gray-100 pt-8">
-            <h3 className="text-[11px] font-bold uppercase tracking-[0.2em] text-gray-400">Description</h3>
-            <p className="text-sm text-gray-600 leading-relaxed whitespace-pre-line">{product.description}</p>
+          <div className="space-y-3 border-t border-gray-100 pt-6">
+            <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-gray-400">Description</h3>
+            <p className="text-sm text-gray-600 leading-relaxed whitespace-pre-line">
+              {product.description_short || product.description}
+              {(product.description_long || product.description) && (
+                <button type="button" onClick={scrollToDetails} className="ml-2 underline text-black font-bold">Voir plus</button>
+              )}
+            </p>
           </div>
 
-          {product.ingredients && (
-            <div className="space-y-4 border-t border-gray-100 pt-8">
-              <h3 className="text-[11px] font-bold uppercase tracking-[0.2em] text-gray-400">Ingrédients</h3>
-              <p className="text-xs text-gray-500 italic leading-relaxed">{product.ingredients}</p>
-            </div>
-          )}
+          <div className="space-y-0 border-t border-gray-100 pt-2">
+            <button type="button" onClick={() => setIsIngredientsOpen(true)} className="w-full flex items-center justify-between text-left py-3 border-b border-gray-100">
+              <span className="text-[10px] font-bold uppercase tracking-[0.2em]">Ingrédients</span>
+              <ChevronRight className="w-4 h-4 text-gray-400" />
+            </button>
+            {packagingInfo?.gift_active && (
+              <div className="w-full flex items-center justify-between py-3 border-b border-gray-100">
+                <div className="flex items-center gap-3">
+                  <Gift className="w-4 h-4 text-[#B29071]" />
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-[0.2em]">Cadeau</p>
+                    <p className="text-[11px] text-gray-600">Dès {Number(packagingInfo.gift_threshold || 0).toFixed(0)} Dhs · {packagingInfo.gift_name || "Offert"}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+            {shouldShowDelivery && (
+              <button type="button" onClick={() => setIsDeliveryOpen(true)} className="w-full flex items-center justify-between text-left py-3 border-b border-gray-100">
+                <div className="flex items-center gap-3">
+                  <Truck className="w-4 h-4 text-[#B29071]" />
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-[0.2em]">{packagingInfo?.delivery_badge_title || "Livraison offerte"}</p>
+                    <p className="text-[11px] text-gray-500">{packagingInfo?.delivery_badge_subtitle || "À partir de 500 Dhs"}</p>
+                  </div>
+                </div>
+                <ChevronRight className="w-4 h-4 text-gray-400" />
+              </button>
+            )}
+          </div>
 
-          <div className="pt-8 flex flex-col sm:flex-row gap-4">
+          <div ref={mainCtaRef} className="pt-8 flex flex-col sm:flex-row gap-4">
             <div className="flex items-center border border-gray-200 rounded-full px-4 py-2 w-fit bg-white">
               <button 
                 onClick={() => setQuantity(Math.max(1, quantity - 1))} 
@@ -216,6 +386,143 @@ export default function ProductPage() {
           </div>
         </div>
       </main>
+
+      <section ref={detailsRef} className="max-w-7xl mx-auto px-6 pb-44 pt-8 grid grid-cols-1 md:grid-cols-2 gap-10">
+        <div>
+          <h2 ref={detailsTitleRef} className="text-2xl font-serif mb-4 uppercase tracking-tight">Détails</h2>
+          <p className="text-sm text-gray-600 leading-relaxed whitespace-pre-line">
+            {product.description_long || product.description || "—"}
+          </p>
+        </div>
+        <div className="bg-[#F9F9F9] rounded-2xl overflow-hidden min-h-[300px]">
+          <img
+            src={product.image_url_2 || product.image_url_3 || product.image_url_4 || product.image_url}
+            alt={product.name}
+            className="w-full h-full object-cover"
+          />
+        </div>
+      </section>
+
+      {shouldShowStickyCta && (
+        <div className="fixed bottom-0 left-0 right-0 z-[115] border-t border-gray-200 bg-white/95 backdrop-blur">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center gap-3">
+            <div className="min-w-0 flex-1">
+              <p className="text-[10px] uppercase tracking-[0.2em] text-gray-400 font-bold truncate">{product.mini_title || "Produit"}</p>
+              <p className="text-xs font-bold truncate">{product.name}</p>
+            </div>
+            <div className="flex items-center border border-gray-200 rounded-full px-2 py-1 bg-white">
+              <button
+                onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                className="p-1 hover:text-[#B29071] transition-colors disabled:opacity-20"
+                disabled={quantity <= 1 || availableToAdd <= 0}
+              >
+                <Minus className="w-3.5 h-3.5" />
+              </button>
+              <span className="w-8 text-center text-sm font-bold">{quantity}</span>
+              <button
+                onClick={() => setQuantity(quantity + 1)}
+                className="p-1 hover:text-[#B29071] transition-colors disabled:opacity-20"
+                disabled={quantity >= availableToAdd}
+              >
+                <Plus className="w-3.5 h-3.5" />
+              </button>
+            </div>
+            <button
+              onClick={handleAddToCart}
+              disabled={availableToAdd <= 0}
+              className={`px-5 sm:px-7 py-3 rounded-full text-[10px] font-bold uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${
+                availableToAdd <= 0
+                ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                : "bg-black text-white hover:bg-[#B29071]"
+              }`}
+            >
+              <ShoppingBag className="w-4 h-4" />
+              <span className="hidden sm:inline">
+                {product.stock <= 0 ? "Rupture de stock" : availableToAdd <= 0 ? "Limite atteinte" : "Ajouter au panier"}
+              </span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {isIngredientsOpen && (
+        <div className="fixed inset-0 z-[120]">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setIsIngredientsOpen(false)} />
+          <div className="absolute top-0 right-0 h-full w-full max-w-2xl bg-white shadow-2xl overflow-y-auto p-8">
+            <div className="flex items-center justify-between border-b border-gray-100 pb-4 mb-6">
+              <h3 className="text-xl font-serif">{product.ingredients_panel_title || "Ingrédients"}</h3>
+              <button type="button" onClick={() => setIsIngredientsOpen(false)} className="w-9 h-9 rounded-full border border-gray-200 flex items-center justify-center">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <p className="text-sm text-gray-700 whitespace-pre-line leading-relaxed">
+              {product.ingredients_panel_content || product.ingredients || "Aucune information."}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {isDeliveryOpen && (
+        <div className="fixed inset-0 z-[120]">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setIsDeliveryOpen(false)} />
+          <div className="absolute top-0 right-0 h-full w-full max-w-2xl bg-white shadow-2xl overflow-y-auto p-8">
+            <div className="flex items-center justify-between border-b border-gray-100 pb-4 mb-6">
+              <h3 className="text-xl font-serif">{deliverySettings?.panel_title || packagingInfo?.delivery_panel_title || "Détail de la livraison"}</h3>
+              <button type="button" onClick={() => setIsDeliveryOpen(false)} className="w-9 h-9 rounded-full border border-gray-200 flex items-center justify-center">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            {(deliverySettings?.section_1_title || deliverySettings?.section_1_content) && (
+              <div className="mb-8">
+                {deliverySettings?.section_1_title && <h4 className="text-lg font-semibold mb-2">{deliverySettings.section_1_title}</h4>}
+                {deliverySettings?.section_1_content && <p className="text-sm text-gray-700 whitespace-pre-line leading-relaxed">{deliverySettings.section_1_content}</p>}
+              </div>
+            )}
+            {(deliverySettings?.section_2_title || deliverySettings?.section_2_content_html) && (
+              <div className="mb-8">
+                {deliverySettings?.section_2_title && <h4 className="text-lg font-semibold mb-3">{deliverySettings.section_2_title}</h4>}
+                {deliverySettings?.section_2_content_html && (
+                  <div className="text-sm text-gray-700 leading-relaxed [&_h3]:text-base [&_h3]:font-bold [&_h3]:mt-5 [&_h3]:mb-3 [&_strong]:font-semibold [&_ul]:list-disc [&_ul]:pl-5 [&_p]:mb-2" dangerouslySetInnerHTML={{ __html: deliverySettings.section_2_content_html }} />
+                )}
+              </div>
+            )}
+            {deliveryRates.length > 0 && (
+              <div className="mb-8 overflow-x-auto">
+                <h4 className="text-lg font-semibold mb-3">Tarifs de livraison</h4>
+                <table className="w-full min-w-[620px] text-sm">
+                  <thead>
+                    <tr className="border-b border-gray-200 text-left">
+                      <th className="py-2 font-semibold">Zones</th>
+                      <th className="py-2 font-semibold">Délais de livraison</th>
+                      <th className="py-2 font-semibold">Frais de livraison</th>
+                      <th className="py-2 font-semibold">Livraison offerte</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {deliveryRates.map((rate: any) => (
+                      <tr key={rate.$id} className="border-b border-gray-100">
+                        <td className="py-2">{rate.zone}</td>
+                        <td className="py-2">{rate.lead_time}</td>
+                        <td className="py-2">{rate.shipping_fee}</td>
+                        <td className="py-2">{rate.free_from}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            {deliverySettings?.notes_html ? (
+              <div className="text-sm text-gray-700 leading-relaxed [&_strong]:font-semibold [&_ul]:list-disc [&_ul]:pl-5 [&_p]:mb-2" dangerouslySetInnerHTML={{ __html: deliverySettings.notes_html }} />
+            ) : (
+              !deliverySettings?.section_2_content_html && !deliveryRates.length && (
+                <p className="text-sm text-gray-700 whitespace-pre-line leading-relaxed">
+                  {packagingInfo?.delivery_panel_content || "Aucune information."}
+                </p>
+              )
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ShoppingBag, Image as ImageIcon, Settings, Share2, ArrowRight, CreditCard, Package, Gift, HelpCircle } from "lucide-react";
+import { ShoppingBag, Image as ImageIcon, Settings, Share2, ArrowRight, CreditCard, Package, Gift, HelpCircle, Truck } from "lucide-react";
 
 export default function AdminDashboard() {
   const cards = [
@@ -32,6 +32,13 @@ export default function AdminDashboard() {
       href: "/admin/packaging", 
       icon: Gift,
       color: "bg-amber-600"
+    },
+    { 
+      title: "Livraison", 
+      desc: "Modifier détails et tarifs de livraison", 
+      href: "/admin/livraison", 
+      icon: Truck,
+      color: "bg-cyan-600"
     },
     { 
       title: "Cadeaux", 

@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { ShoppingBag, User, Search, Heart, Menu, X, LogOut, ShieldCheck, ChevronRight } from "lucide-react";
-import { useEffect, useState } from "react";
+import { ShoppingBag, User, Search, Heart, Menu, X, LogOut, ShieldCheck, ChevronRight, ChevronLeft } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { account, databases, DATABASE_ID, storage } from "@/appwriteConfig";
 const BUCKET_ID_IMAGES = "6798e2270001090333d4"; 
 
@@ -15,7 +15,7 @@ import { getStoreSettings } from "@/lib/data";
 export default function Navbar() {
   const router = useRouter();
   const pathname = usePathname();
-  const { cartCount } = useCart(); 
+  const { cartCount, addToCart } = useCart(); 
   const { wishlistCount } = useWishlist(); 
   
   const [menuText, setMenuText] = useState("SÉLECTION RAMADAN");
@@ -39,6 +39,13 @@ export default function Navbar() {
 
   // ESTADO INICIAL CON CACHÉ O VALORES POR DEFECTO
   const [promoMessages, setPromoMessages] = useState<string[]>([]);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [searchInput, setSearchInput] = useState("");
+  const [searchPopularTerms, setSearchPopularTerms] = useState<string[]>([]);
+  const [searchProducts, setSearchProducts] = useState<any[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const searchPanelRef = useRef<HTMLDivElement | null>(null);
+  const searchProductsScrollRef = useRef<HTMLDivElement | null>(null);
 
   // 1. EFECTO ULTRA-RÁPIDO PARA MENSAJES (Independiente de todo)
   useEffect(() => {
@@ -136,6 +143,11 @@ export default function Navbar() {
   }, [pathname]);
 
   useEffect(() => {
+    setIsSearchOpen(false);
+    setSearchInput("");
+  }, [pathname]);
+
+  useEffect(() => {
     const handleScroll = () => {
       if (window.scrollY > 40) setIsSticky(true);
       else setIsSticky(false);
@@ -162,6 +174,80 @@ export default function Navbar() {
     if (isMobileMenuOpen) document.body.style.overflow = 'hidden';
     else document.body.style.overflow = 'unset';
   }, [isMobileMenuOpen]);
+
+  useEffect(() => {
+    async function fetchSearchData() {
+      setSearchLoading(true);
+      try {
+        const [popularRes, productsRes] = await Promise.all([
+          databases.listDocuments(DATABASE_ID, "search_popular", [
+            Query.equal("active", true),
+            Query.orderAsc("order"),
+            Query.limit(20),
+          ]),
+          databases.listDocuments(DATABASE_ID, "products", [
+            Query.orderDesc("$createdAt"),
+            Query.limit(80),
+          ]),
+        ]);
+        const terms = popularRes.documents
+          .map((doc: any) => String(doc.term || "").trim())
+          .filter((term: string) => term.length > 0);
+        setSearchPopularTerms(terms);
+        setSearchProducts(productsRes.documents);
+      } catch (error) {
+        setSearchPopularTerms([]);
+        setSearchProducts([]);
+      } finally {
+        setSearchLoading(false);
+      }
+    }
+    fetchSearchData();
+  }, []);
+
+  useEffect(() => {
+    if (!isSearchOpen) return;
+    const handleClickOutside = (event: MouseEvent) => {
+      if (!searchPanelRef.current) return;
+      if (!searchPanelRef.current.contains(event.target as Node)) {
+        setIsSearchOpen(false);
+      }
+    };
+    const handleEsc = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setIsSearchOpen(false);
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleEsc);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleEsc);
+    };
+  }, [isSearchOpen]);
+
+  const normalizedSearch = searchInput.trim().toLowerCase();
+  const filteredPopularTerms = (normalizedSearch
+    ? searchPopularTerms.filter((term) => term.toLowerCase().includes(normalizedSearch))
+    : searchPopularTerms
+  ).slice(0, 10);
+  const filteredSearchProducts = (normalizedSearch
+    ? searchProducts.filter((prod: any) => {
+        const name = String(prod?.name || "").toLowerCase();
+        const description = String(prod?.description || "").toLowerCase();
+        return name.includes(normalizedSearch) || description.includes(normalizedSearch);
+      })
+    : searchProducts
+  ).slice(0, 6);
+  useEffect(() => {
+    if (isSearchOpen && searchProductsScrollRef.current) {
+      searchProductsScrollRef.current.scrollLeft = 0;
+    }
+  }, [isSearchOpen, normalizedSearch]);
+  const canScrollProducts = filteredSearchProducts.length > 3;
+  const scrollSearchProducts = (direction: "left" | "right") => {
+    if (!searchProductsScrollRef.current) return;
+    const distance = direction === "left" ? -320 : 320;
+    searchProductsScrollRef.current.scrollBy({ left: distance, behavior: "smooth" });
+  };
 
   if (pathname?.startsWith("/admin")) return null;
 
@@ -277,9 +363,16 @@ export default function Navbar() {
               <Menu className="w-6 h-6" />
             </button>
             <div className="hidden lg:flex gap-6 items-center text-[11px] uppercase tracking-[0.15em] font-medium text-black">
-              <div className="flex items-center gap-2 cursor-pointer hover:text-[#B29071] transition-colors">
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveMegaMenu(null);
+                  setIsSearchOpen((prev) => !prev);
+                }}
+                className={`flex items-center gap-2 cursor-pointer transition-colors ${isSearchOpen ? "text-[#B29071]" : "hover:text-[#B29071]"}`}
+              >
                 <Search className="w-4 h-4" /><span>Recherche</span>
-              </div>
+              </button>
             </div>
           </div>
 
@@ -356,6 +449,97 @@ export default function Navbar() {
             <MegaMenu category="OFFRES" products={megaMenuProducts["OFFRES"]} displayTitle="NOS OFFRES" />
           </div>
         </nav>
+
+        <div className={`hidden lg:block overflow-hidden transition-all duration-500 ease-in-out ${isSearchOpen ? "max-h-[520px] border-b border-gray-100" : "max-h-0"}`}>
+          <div ref={searchPanelRef} className="bg-white px-8 xl:px-12 py-6">
+            <div className="max-w-[1400px] mx-auto space-y-6">
+              <div className="flex items-center gap-3 border-b border-gray-200 pb-4">
+                <Search className="w-4 h-4 text-gray-500" />
+                <input
+                  value={searchInput}
+                  onChange={(e) => setSearchInput(e.target.value)}
+                  placeholder="Chercher..."
+                  className="w-full text-sm outline-none placeholder:text-gray-400"
+                />
+              </div>
+
+              <div className="grid grid-cols-12 gap-6">
+                <div className="col-span-3">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.2em] mb-4">Recherches populaires</p>
+                  <div className="space-y-2">
+                    {filteredPopularTerms.map((term) => (
+                      <button
+                        key={term}
+                        type="button"
+                        onClick={() => setSearchInput(term)}
+                        className="block text-left text-[12px] text-gray-600 hover:text-[#B29071] transition-colors"
+                      >
+                        {term}
+                      </button>
+                    ))}
+                    {!searchLoading && filteredPopularTerms.length === 0 && (
+                      <p className="text-[11px] text-gray-400">Aucun terme disponible.</p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="col-span-9">
+                  <div className="flex items-center justify-between mb-4">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.2em]">Produits recommandés</p>
+                    {canScrollProducts && (
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => scrollSearchProducts("left")}
+                          className="w-8 h-8 rounded-full border border-gray-200 flex items-center justify-center text-gray-500 hover:text-black hover:border-black transition-all"
+                        >
+                          <ChevronLeft className="w-4 h-4" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => scrollSearchProducts("right")}
+                          className="w-8 h-8 rounded-full border border-gray-200 flex items-center justify-center text-gray-500 hover:text-black hover:border-black transition-all"
+                        >
+                          <ChevronRight className="w-4 h-4" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                  {searchLoading ? (
+                    <div className="h-40 flex items-center justify-center text-sm text-gray-400">Chargement...</div>
+                  ) : (
+                    <div ref={searchProductsScrollRef} className="flex gap-4 overflow-x-auto pb-2">
+                      {filteredSearchProducts.map((prod: any) => (
+                        <div key={prod.$id} className="shrink-0 w-[220px] border border-gray-100 rounded-2xl p-4 hover:shadow-sm transition-all bg-[#fffdf9]">
+                          <Link href={`/produit/${prod.$id}`} onClick={() => setIsSearchOpen(false)} className="block">
+                            <div className="aspect-square mb-3 bg-white rounded-xl overflow-hidden">
+                              <img src={getImageUrl(prod.image || prod.image_url)} alt={prod.name} className="w-full h-full object-cover" />
+                            </div>
+                            <h4 className="text-[11px] font-bold uppercase tracking-wide line-clamp-2 min-h-[32px]">{prod.name}</h4>
+                            <p className="text-[11px] mt-2 font-bold text-[#B29071]">{Number(prod.price || 0).toFixed(2)} MAD</p>
+                          </Link>
+                          <button
+                            type="button"
+                            disabled={Number(prod.stock || 0) <= 0}
+                            onClick={() => addToCart(prod.$id, 1)}
+                            className={`w-full mt-3 rounded-full py-2.5 text-[9px] font-bold uppercase tracking-widest transition-all ${Number(prod.stock || 0) <= 0 ? "bg-gray-100 text-gray-400 cursor-not-allowed" : "bg-black text-white hover:bg-[#B29071]"}`}
+                          >
+                            {Number(prod.stock || 0) <= 0 ? "Rupture de stock" : "Ajouter au panier"}
+                          </button>
+                        </div>
+                      ))}
+                      {!searchLoading && filteredSearchProducts.length === 0 && (
+                        <div className="w-full h-40 flex items-center justify-center border border-dashed border-gray-200 rounded-2xl text-[11px] text-gray-400 uppercase tracking-wider">
+                          Aucun produit trouvé
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </header>
 
       {isSticky && <div className="h-[140px] lg:h-[180px]"></div>}

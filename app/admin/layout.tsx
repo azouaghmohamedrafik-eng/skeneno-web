@@ -15,7 +15,8 @@ import {
   Package, 
   CreditCard,
   Gift,
-  HelpCircle 
+  HelpCircle,
+  Truck
 } from "lucide-react";
 import Link from "next/link";
 import { account, databases, DATABASE_ID } from "../../appwriteConfig";
@@ -54,6 +55,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { name: "Stock", href: "/admin/stock", icon: Package },             
     { name: "Commandes", href: "/admin/commandes", icon: CreditCard },
     { name: "Packaging", href: "/admin/packaging", icon: Package },
+    { name: "Livraison", href: "/admin/livraison", icon: Truck },
     { name: "Cadeaux", href: "/admin/gifts", icon: Gift }, // NUEVA SECCIÓN AÑADIDA
     { name: "Slider", href: "/admin/slider", icon: ImageIcon },
     { name: "Footer", href: "/admin/footer", icon: Share2 },
