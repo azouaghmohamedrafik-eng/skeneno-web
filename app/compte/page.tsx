@@ -226,7 +226,7 @@ export default function ComptePage() {
                     </div>
                     <div className="flex justify-between items-center pt-2 border-t border-gray-50">
                       <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Total Payé</span>
-                      <span className="text-lg font-bold text-[#B29071]">{order.total.toFixed(2)} DHS</span>
+                      <span className="text-lg font-bold text-[#B29071]">{order.total.toFixed(2)} MAD</span>
                     </div>
                   </div>
                 )) : (

@@ -34,6 +34,13 @@ export default function AdminDashboard() {
       color: "bg-amber-600"
     },
     { 
+      title: "Cadeaux", 
+      desc: "Configurer les cadeaux et l'inventaire", 
+      href: "/admin/gifts", 
+      icon: Gift,
+      color: "bg-pink-600"
+    },
+    { 
       title: "Paramètres", 
       desc: "Menu dynamique et promos", 
       href: "/admin/configuration", 
@@ -46,6 +53,13 @@ export default function AdminDashboard() {
       href: "/admin/stock", 
       icon: Package,
       color: "bg-emerald-500"
+    },
+    { 
+      title: "Footer", 
+      desc: "Liens sociaux et informations légales", 
+      href: "/admin/footer", 
+      icon: Share2,
+      color: "bg-slate-600"
     },
     { 
       title: "Guide d'Utilisation", 

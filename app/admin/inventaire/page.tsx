@@ -243,7 +243,7 @@ export default function InventoryPage() {
                 <p className="text-[9px] text-gray-400 italic px-1">Ex: Huile d'Argan Pure</p>
               </div>
               <div className="space-y-1">
-                  <input type="number" step="0.01" placeholder="Prix (DHS)" value={form.price} onChange={e => setForm({...form, price: e.target.value})} className="w-full border p-3 rounded text-sm outline-none focus:border-[#B29071]" required />
+                  <input type="number" step="0.01" placeholder="Prix (MAD)" value={form.price} onChange={e => setForm({...form, price: e.target.value})} className="w-full border p-3 rounded text-sm outline-none focus:border-[#B29071]" required />
                   <p className="text-[9px] text-gray-400 italic px-1">Prix de vente en Dirhams</p>
               </div>
             </div>
@@ -389,7 +389,7 @@ export default function InventoryPage() {
                     {p.stock} un.
                   </span>
                 </td>
-                <td className="p-4 font-bold text-[#B29071]">{p.price.toFixed(2)} DHS</td>
+                <td className="p-4 font-bold text-[#B29071]">{p.price.toFixed(2)} MAD</td>
                 <td className="p-4 text-right">
                   <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100">
                     <button onClick={() => {

@@ -135,7 +135,7 @@ export default function ProductPage() {
           <div>
             <h1 className="text-4xl md:text-5xl font-serif mb-2">{product.name}</h1>
             <p className="text-[#B29071] font-bold text-xl tracking-widest">
-              {Number(product.price).toFixed(2)} DHS
+              {Number(product.price).toFixed(2)} MAD
             </p>
             <div className="flex flex-wrap gap-3 mt-4">
               {product.format && (

@@ -20,6 +20,9 @@ interface Order {
   clientName?: string;
   clientEmail?: string;
   clientPhone?: string;
+  coupon_code?: string;
+  discount_total?: number;
+  subtotal_before_discount?: number;
 }
 
 export default function AdminOrdersPage() {
@@ -203,7 +206,18 @@ export default function AdminOrdersPage() {
                   )}
                 </div>
                 <div className="text-right ml-4">
-                  <p className="text-lg font-bold text-black">{order.total.toFixed(2)} <span className="text-[10px]">MAD</span></p>
+                  <div className="space-y-1">
+                    {typeof order.subtotal_before_discount === "number" && order.subtotal_before_discount > 0 && (
+                      <p className="text-xs text-gray-500">Sous-total: {order.subtotal_before_discount.toFixed(2)} MAD</p>
+                    )}
+                    {typeof order.discount_total === "number" && order.discount_total > 0 && (
+                      <p className="text-xs text-green-600 font-bold">
+                        {order.coupon_code ? `Coupon ${order.coupon_code}: ` : "Remise: "}
+                        -{order.discount_total.toFixed(2)} MAD
+                      </p>
+                    )}
+                    <p className="text-lg font-bold text-black">{order.total.toFixed(2)} <span className="text-[10px]">MAD</span></p>
+                  </div>
                 </div>
               </div>
 

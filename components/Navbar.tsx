@@ -206,7 +206,7 @@ export default function Navbar() {
                     
                     <div className="relative flex items-center justify-between w-full mt-2 h-10 overflow-hidden group/cart">
                        <span className="text-[13px] font-bold transition-opacity duration-300 group-hover/cart:opacity-0">
-                         {prod.price} DH
+                         {prod.price} MAD
                        </span>
 
                        <div className="absolute right-0 flex items-center justify-end w-full pointer-events-none">
@@ -253,19 +253,23 @@ export default function Navbar() {
     <>
       <header className={`w-full bg-white font-sans z-[100] transition-all duration-300 ${isSticky ? "fixed top-0 shadow-md" : "relative"}`}>
         
-        {/* BARRA SUPERIOR CORREGIDA: Aparece siempre si hay mensajes (incluso cacheados) */}
-        {promoMessages.length > 0 && (
-          <div className="bg-[#A48265] text-white text-[9px] md:text-[10px] py-2 overflow-hidden relative h-9 flex items-center">
-            <div className="animate-marquee whitespace-nowrap">
-              {promoMessages.map((msg, idx) => (
-                <span key={idx} className="mx-32 uppercase tracking-[0.2em] font-bold">{msg}</span>
-              ))}
-              {promoMessages.map((msg, idx) => (
-                <span key={`dup-${idx}`} className="mx-32 uppercase tracking-[0.2em] font-bold">{msg}</span>
-              ))}
-            </div>
+        {/* BARRA SUPERIOR INMEDIATA: Siempre visible con fallback instantáneo */}
+        <div className="bg-[#A48265] text-white text-[9px] md:text-[10px] py-2 overflow-hidden relative h-9 flex items-center">
+          <div className="animate-marquee whitespace-nowrap">
+            {((promoMessages && promoMessages.length > 0) ? promoMessages : [
+              "Livraison gratuite à partir de 500 MAD",
+              "Dès 1500 MAD : Cadeau offert"
+            ]).map((msg, idx) => (
+              <span key={idx} className="mx-32 uppercase tracking-[0.2em] font-bold">{msg}</span>
+            ))}
+            {((promoMessages && promoMessages.length > 0) ? promoMessages : [
+              "Livraison gratuite à partir de 500 MAD",
+              "Dès 1500 MAD : Cadeau offert"
+            ]).map((msg, idx) => (
+              <span key={`dup-${idx}`} className="mx-32 uppercase tracking-[0.2em] font-bold">{msg}</span>
+            ))}
           </div>
-        )}
+        </div>
 
         <div className={`flex justify-between items-center px-6 md:px-10 border-b border-gray-100 transition-all ${isSticky ? "py-2" : "py-4"}`}>
           <div className="w-1/3 flex items-center gap-4">

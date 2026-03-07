@@ -64,7 +64,7 @@ export default function FavorisPage() {
                   <div className="text-center">
                     <h3 className="font-serif text-xl mb-2">{item.name}</h3>
                     <p className="text-[#B29071] font-bold tracking-widest">
-                      {item.price ? Number(item.price).toFixed(2) : "0.00"} DHS
+                      {item.price ? Number(item.price).toFixed(2) : "0.00"} MAD
                     </p>
                   </div>
                 </Link>

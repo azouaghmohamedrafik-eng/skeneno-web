@@ -220,6 +220,92 @@ export default function AdminGuidePage() {
         </div>
       </section>
 
+      <section className="space-y-10">
+        <div className="flex items-center gap-6">
+          <div className="p-5 rounded-3xl bg-violet-50 text-violet-600 shadow-sm border border-violet-100">
+            <Settings className="w-10 h-10" />
+          </div>
+          <div>
+            <h3 className="text-3xl font-bold">05. Coupons & Menu de Campagne</h3>
+            <p className="text-sm text-gray-400 uppercase tracking-widest font-bold">Promotions contrôlées et élégantes</p>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+          <div className="bg-white p-10 rounded-[2.5rem] border border-gray-100 shadow-sm space-y-6">
+            <div className="flex items-center gap-4 text-violet-600">
+              <CreditCard className="w-6 h-6" />
+              <h4 className="font-bold text-xl uppercase tracking-wider">Système de Coupons</h4>
+            </div>
+            <div className="space-y-4">
+              <p className="text-sm text-gray-600 leading-relaxed">
+                Créez un code unique, choisissez le type <span className="font-bold">Pourcentage</span> ou <span className="font-bold">Montant fixe</span>, 
+                définissez le minimum de commande, la période de validité et les limites d'usage. Vous pouvez aussi cibler un produit précis.
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="rounded-2xl border p-4">
+                  <p className="text-[10px] font-bold uppercase text-gray-400">Exemple</p>
+                  <p className="text-sm"><span className="font-bold">RAMADAN20</span> • 20% • Min: 200 MAD • 05/03 → 08/03</p>
+                </div>
+                <div className="rounded-2xl border p-4">
+                  <p className="text-[10px] font-bold uppercase text-gray-400">Ciblage produit</p>
+                  <p className="text-sm">Sélectionnez un produit du catalogue pour une remise ciblée.</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 text-green-600">
+                <CheckCircle2 className="w-5 h-5" />
+                <p className="text-sm">Activation/désactivation et édition rapides depuis la liste.</p>
+              </div>
+            </div>
+          </div>
+          <div className="bg-white p-10 rounded-[2.5rem] border border-gray-100 shadow-sm space-y-6">
+            <div className="flex items-center gap-4 text-violet-600">
+              <Sparkles className="w-6 h-6" />
+              <h4 className="font-bold text-xl uppercase tracking-wider">Menu de Campagne</h4>
+            </div>
+            <p className="text-sm text-gray-600 leading-relaxed">
+              Affichez un lien de campagne dans la barre de navigation pour vos opérations marketing. 
+              Utilisez un intitulé court et impactant, par exemple <span className="font-bold">Ramadan</span>, <span className="font-bold">Soldes</span> ou <span className="font-bold">Nouveautés</span>.
+            </p>
+            <div className="rounded-2xl border p-4 space-y-2">
+              <p className="text-[10px] font-bold uppercase text-gray-400">Bonnes pratiques</p>
+              <ul className="text-sm text-gray-600 space-y-1">
+                <li>Évitez les titres trop longs.</li>
+                <li>Gardez une seule campagne active à la fois.</li>
+                <li>Couplez avec un slider d’accueil pour cohérence visuelle.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="space-y-10">
+        <div className="flex items-center gap-6">
+          <div className="p-5 rounded-3xl bg-indigo-50 text-indigo-600 shadow-sm border border-indigo-100">
+            <ImageIcon className="w-10 h-10" />
+          </div>
+          <div>
+            <h3 className="text-3xl font-bold">06. Slider & Footer</h3>
+            <p className="text-sm text-gray-400 uppercase tracking-widest font-bold">Identité et crédibilité</p>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+          <div className="bg-white p-10 rounded-[2.5rem] border border-gray-100 shadow-sm space-y-6">
+            <h4 className="font-bold text-xl">Slider d’accueil</h4>
+            <p className="text-sm text-gray-600 leading-relaxed">
+              Utilisez des visuels haute définition. Chaque slide peut être liée à un produit ou une collection. 
+              Respectez un texte court et une hiérarchie claire pour rester premium.
+            </p>
+          </div>
+          <div className="bg-white p-10 rounded-[2.5rem] border border-gray-100 shadow-sm space-y-6">
+            <h4 className="font-bold text-xl">Footer</h4>
+            <p className="text-sm text-gray-600 leading-relaxed">
+              Mettez à jour les liens sociaux et les mentions légales. Un footer complet augmente la confiance 
+              et améliore la conversion sur une marque de luxe.
+            </p>
+          </div>
+        </div>
+      </section>
+
       {/* FOOTER DE LA GUÍA */}
       <div className="pt-16 border-t border-gray-100 flex flex-col md:flex-row justify-between items-center gap-8">
         <div className="flex items-center gap-3 text-gray-400">
@@ -228,10 +314,9 @@ export default function AdminGuidePage() {
         </div>
         <div className="flex items-center gap-4">
             <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-            <p className="text-[10px] font-bold uppercase text-gray-300 tracking-[0.4em]">Skineno OS v1.0.4 - 2024</p>
+            <p className="text-[10px] font-bold uppercase text-gray-300 tracking-[0.4em]">Skineno OS v1.1.0 - 2026</p>
         </div>
       </div>
-
     </div>
   );
 }

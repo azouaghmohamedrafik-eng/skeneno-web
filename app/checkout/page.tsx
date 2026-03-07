@@ -46,6 +46,11 @@ export default function CheckoutPage() {
   const [useSaved, setUseSaved] = useState(true);
   const [hasProfileInfo, setHasProfileInfo] = useState(false);
   const [savedGiftMessage, setSavedGiftMessage] = useState("");
+  const [couponInput, setCouponInput] = useState("");
+  const [appliedCoupon, setAppliedCoupon] = useState<any>(null);
+  const [couponApplying, setCouponApplying] = useState(false);
+  const [couponError, setCouponError] = useState<string | null>(null);
+  const [discountTotal, setDiscountTotal] = useState(0);
 
   useEffect(() => {
     const msg = localStorage.getItem("skineno_gift_message") || "";
@@ -144,7 +149,82 @@ export default function CheckoutPage() {
   const bagInCart = cart.find(item => item.product_id === "gift_bag");
   const packagingTotal = (boxInCart ? (packagingInfo?.box_price * boxInCart.quantity || 0) : 0) + 
                          (bagInCart ? (packagingInfo?.bag_price * bagInCart.quantity || 0) : 0);
-  const totalFinal = productsTotal + packagingTotal;
+  const totalFinal = Math.max(0, productsTotal + packagingTotal - discountTotal);
+
+  const calcEligibleSubtotal = (coupon: any) => {
+    const productIdsEligible: string[] = Array.isArray(coupon.applicable_product_ids) ? coupon.applicable_product_ids : [];
+    const tagsEligible: string[] = Array.isArray(coupon.applicable_tags) ? coupon.applicable_tags : [];
+    const base = products.filter(p => !p.isGift);
+    if (productIdsEligible.length > 0) {
+      return base
+        .filter(p => productIdsEligible.includes(p.$id))
+        .reduce((sum, p) => sum + p.price * p.quantity, 0);
+    }
+    if (tagsEligible.length > 0) {
+      return base
+        .filter(p => {
+          const anyTag = (p as any).tags && Array.isArray((p as any).tags) 
+            ? tagsEligible.some(t => (p as any).tags.includes(t)) 
+            : true;
+          return anyTag;
+        })
+        .reduce((sum, p) => sum + p.price * p.quantity, 0);
+    }
+    return base.reduce((sum, p) => sum + p.price * p.quantity, 0);
+  };
+
+  const applyCoupon = async () => {
+    setCouponApplying(true);
+    setCouponError(null);
+    setDiscountTotal(0);
+    setAppliedCoupon(null);
+    try {
+      const code = couponInput.trim().toUpperCase();
+      if (!code) { setCouponError("Veuillez saisir un code."); return; }
+      const nowIso = new Date().toISOString();
+      const res = await databases.listDocuments(DATABASE_ID, 'coupons', [
+        Query.equal('code', code),
+        Query.equal('is_active', true),
+        Query.lessThanEqual('start_at', nowIso),
+        Query.greaterThanEqual('end_at', nowIso),
+        Query.limit(1)
+      ]);
+      if (res.documents.length === 0) { setCouponError("Code invalide ou expiré."); return; }
+      const coupon: any = res.documents[0];
+
+      if (productsTotal < (coupon.min_order_total || 0)) {
+        setCouponError("Montant minimum non atteint."); return;
+      }
+      if (userId) {
+        if (coupon.first_order_only) {
+          const prev = await databases.listDocuments(DATABASE_ID, 'orders', [Query.equal('user_id', userId), Query.limit(1)]);
+          if (prev.total > 0) { setCouponError("Réservé au premier achat."); return; }
+        }
+        const globalUsage = await databases.listDocuments(DATABASE_ID, 'coupon_usages', [Query.equal('coupon_id', coupon.$id)]);
+        if ((coupon.max_usage_global || 0) > 0 && globalUsage.total >= coupon.max_usage_global) {
+          setCouponError("Limite globale atteinte."); return;
+        }
+        const userUsage = await databases.listDocuments(DATABASE_ID, 'coupon_usages', [Query.equal('coupon_id', coupon.$id), Query.equal('user_id', userId)]);
+        if ((coupon.per_user_limit || 0) > 0 && userUsage.total >= coupon.per_user_limit) {
+          setCouponError("Limite par utilisateur atteinte."); return;
+        }
+      }
+
+      const eligibleSubtotal = calcEligibleSubtotal(coupon);
+      if (eligibleSubtotal <= 0) { setCouponError("Aucun article éligible pour ce code."); return; }
+      let discount = 0;
+      if (coupon.type === 'percentage') discount = eligibleSubtotal * (coupon.amount / 100);
+      else discount = Math.min(coupon.amount, eligibleSubtotal);
+      if (discount <= 0) { setCouponError("Remise non applicable."); return; }
+
+      setAppliedCoupon(coupon);
+      setDiscountTotal(discount);
+    } catch (err) {
+      setCouponError("Erreur lors de l'application.");
+    } finally {
+      setCouponApplying(false);
+    }
+  };
 
   const handlePlaceOrder = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -157,17 +237,43 @@ export default function CheckoutPage() {
       if (bagInCart) itemsArray.push(`${bagInCart.quantity}x Pochette Cadeau`);
       
       const itemsSummary = itemsArray.join(", ");
-      await databases.createDocument(DATABASE_ID, 'orders', ID.unique(), {
-        user_id: userId, items: itemsSummary, total: totalFinal, 
-        shipping_address: `${address}, ${city}`, status: "en attente", gift_message: savedGiftMessage 
+      const orderDoc = await databases.createDocument(DATABASE_ID, 'orders', ID.unique(), {
+        user_id: userId, items: itemsSummary, total: totalFinal,
+        shipping_address: `${address}, ${city}`, status: "en attente", gift_message: savedGiftMessage,
+        coupon_code: appliedCoupon ? appliedCoupon.code : "",
+        discount_total: discountTotal,
+        subtotal_before_discount: productsTotal
       });
 
-      window.open(`https://wa.me/212639083315?text=${encodeURIComponent(`Nouvelle commande de ${fullName}\nArticles: ${itemsSummary}\nTotal: ${totalFinal.toFixed(2)} MAD\nMessage: ${savedGiftMessage}`)}`, '_blank');
+      if (appliedCoupon && userId) {
+        try {
+          await databases.createDocument(DATABASE_ID, 'coupon_usages', ID.unique(), {
+            coupon_id: appliedCoupon.$id,
+            user_id: userId,
+            order_id: orderDoc.$id,
+            used_at: new Date().toISOString()
+          });
+        } catch (usageErr) {
+          console.warn("Coupon usage logging failed:", usageErr);
+        }
+      }
+
+      window.open(`https://wa.me/212639083315?text=${encodeURIComponent(
+        `Nouvelle commande de ${fullName}` +
+        `\nArticles: ${itemsSummary}` +
+        (appliedCoupon ? `\nCoupon: ${appliedCoupon.code} (-${discountTotal.toFixed(2)} MAD)` : ``) +
+        `\nSous-total: ${productsTotal.toFixed(2)} MAD` +
+        `\nTotal: ${totalFinal.toFixed(2)} MAD` +
+        (savedGiftMessage ? `\nMessage: ${savedGiftMessage}` : ``)
+      )}`, '_blank');
       await Promise.all(cart.map(item => databases.deleteDocument(DATABASE_ID, 'cart', item.$id!)));
       clearCart();
       localStorage.removeItem("skineno_gift_message");
       router.push("/merci");
-    } catch { alert("Erreur."); } finally { setOrderLoading(false); }
+    } catch (err) { 
+      console.error("Erreur lors de la confirmation de commande:", err);
+      alert("Erreur."); 
+    } finally { setOrderLoading(false); }
   };
 
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-white"><Loader2 className="animate-spin" /></div>;
@@ -203,6 +309,21 @@ export default function CheckoutPage() {
               <div className="flex justify-between items-center text-sm"><span className="flex items-center gap-2"><ShoppingBag className="w-4 h-4"/> {bagInCart.quantity}x Pochette Cadeau</span><span>{(packagingInfo.bag_price * bagInCart.quantity).toFixed(2)} MAD</span></div>
             )}
             {savedGiftMessage && <div className="pt-2 italic text-xs text-gray-500 border-l-2 border-amber-300 pl-2">"{savedGiftMessage}"</div>}
+            <div className="pt-6 space-y-3">
+              <div className="flex gap-2">
+                <input value={couponInput} onChange={e => setCouponInput(e.target.value)} placeholder="Code promo" className="flex-1 border p-3 rounded text-sm outline-none" />
+                <button type="button" onClick={applyCoupon} disabled={couponApplying} className="px-4 py-3 rounded bg-black text-white text-xs font-bold uppercase hover:bg-[#B29071] transition">
+                  {couponApplying ? "..." : "Appliquer"}
+                </button>
+              </div>
+              {couponError && <p className="text-xs text-red-600">{couponError}</p>}
+              {appliedCoupon && (
+                <div className="flex justify-between text-xs">
+                  <span>Coupon {appliedCoupon.code}</span>
+                  <span className="font-bold text-green-600">- {discountTotal.toFixed(2)} MAD</span>
+                </div>
+              )}
+            </div>
             <div className="pt-4 border-t flex justify-between text-2xl font-serif"><span>Total</span><span className="text-[#B29071]">{totalFinal.toFixed(2)} MAD</span></div>
           </div>
           <button type="submit" form="orderForm" disabled={orderLoading} className="w-full bg-black text-white py-6 rounded-full font-bold uppercase tracking-widest hover:bg-[#B29071] transition-all">

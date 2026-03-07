@@ -104,7 +104,7 @@ export default function OffresPage() {
                 <div className="text-center">
                   <h3 className="font-serif text-xl mb-1">{product.name}</h3>
                   <p className="text-[#B29071] font-bold tracking-widest">
-                    {Number(product.price).toFixed(2)} DHS
+                    {Number(product.price).toFixed(2)} MAD
                   </p>
                 </div>
               </div>

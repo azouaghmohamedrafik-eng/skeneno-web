@@ -153,7 +153,7 @@ export default function Home() {
               </div>
               <h4 className="text-lg font-serif tracking-wide text-black">{item.name}</h4>
               <p className="text-xs text-[#B29071] mt-2 font-bold uppercase tracking-widest">
-                {Number(item.price).toFixed(2)} DHS
+                {Number(item.price).toFixed(2)} MAD
               </p>
             </Link>
           ))}
