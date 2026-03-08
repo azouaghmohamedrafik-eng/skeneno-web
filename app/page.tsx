@@ -6,6 +6,7 @@ import { databases, DATABASE_ID } from "@/appwriteConfig";
 import { Query } from "appwrite";
 import { ChevronLeft, ChevronRight, Loader2, ShoppingBag, Star } from "lucide-react";
 import Link from "next/link";
+import { useCart } from "@/lib/CartContext";
 
 interface Product { id: string; name: string; price: number; image_url: string; mini_title?: string; miniTitle?: string; description_short?: string; }
 interface Slide { $id: string; title: string; subtitle: string; description: string; image1_url: string; image2_url: string; product_id: string | null; }
@@ -16,6 +17,7 @@ export default function Home() {
   const [slides, setSlides] = useState<Slide[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentSlide, setCurrentSlide] = useState(0);
+  const { addToCart, openCartDrawer } = useCart();
   const mobileProductsRef = useRef<HTMLDivElement | null>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
@@ -269,7 +271,11 @@ export default function Home() {
                 <h4 className="text-[22px] font-serif tracking-tight text-black uppercase leading-tight truncate">{item.name}</h4>
                 <p className="text-[11px] text-black mt-0.5 uppercase tracking-wide truncate">{item.mini_title || item.miniTitle || item.description_short || "Soin Skineno"}</p>
                 <div className="mt-2 flex items-center gap-2">
-                  <button type="button" className="w-9 h-9 rounded-full bg-[#C7B186] text-white flex items-center justify-center">
+                  <button
+                    type="button"
+                    onClick={async () => { await addToCart(item.id, 1); openCartDrawer(); }}
+                    className="w-9 h-9 rounded-full bg-[#C7B186] text-white flex items-center justify-center"
+                  >
                     <ShoppingBag className="w-4 h-4" />
                   </button>
                   <div>
