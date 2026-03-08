@@ -9,10 +9,13 @@ import { useCart } from "@/lib/CartContext";
 import { useWishlist } from "@/lib/WishlistContext";
 import { Query } from "appwrite";
 
+const ALT_VARIANT_SUFFIX = "::alt";
+
 interface Product {
   id: string;
   name: string; 
   price: number; 
+  price_alt?: number;
   stock: number;
   image_url: string;
   image_url_2?: string;
@@ -23,6 +26,7 @@ interface Product {
   description_long?: string;
   description: string; 
   format: string; 
+  format_alt?: string;
   ingredients: string;
   ingredients_panel_title?: string;
   ingredients_panel_content?: string;
@@ -44,15 +48,30 @@ export default function ProductPage() {
   const [packagingInfo, setPackagingInfo] = useState<any>(null);
   const [deliverySettings, setDeliverySettings] = useState<any>(null);
   const [deliveryRates, setDeliveryRates] = useState<any[]>([]);
+  const [selectedFormatKey, setSelectedFormatKey] = useState<"primary" | "alt">("primary");
   const detailsRef = useRef<HTMLDivElement | null>(null);
   const detailsTitleRef = useRef<HTMLHeadingElement | null>(null);
   const mainCtaRef = useRef<HTMLDivElement | null>(null);
   const [isMainCtaVisible, setIsMainCtaVisible] = useState(true);
 
-  const cartItem = cart?.find((item: any) => String(item.product_id) === String(id));
-  const quantityInCart = cartItem ? Number(cartItem.quantity) : 0;
+  const getBaseProductId = (cartProductId: string) => (
+    cartProductId.endsWith(ALT_VARIANT_SUFFIX)
+      ? cartProductId.slice(0, -ALT_VARIANT_SUFFIX.length)
+      : cartProductId
+  );
+  const quantityInCart = (cart || []).reduce((sum: number, item: any) => (
+    getBaseProductId(String(item.product_id || "")) === String(id)
+      ? sum + Number(item.quantity || 0)
+      : sum
+  ), 0);
   const stockTotal = product ? Number(product.stock) : 0;
   const availableToAdd = Math.max(0, stockTotal - quantityInCart);
+  const hasAltVariant = Boolean((product?.format_alt || "").trim()) && Number(product?.price_alt || 0) > 0;
+  const selectedPrice = selectedFormatKey === "alt" && hasAltVariant ? Number(product?.price_alt || 0) : Number(product?.price || 0);
+  const selectedFormat = selectedFormatKey === "alt" && hasAltVariant ? String(product?.format_alt || "") : String(product?.format || "");
+  const selectedCartProductId = product
+    ? (selectedFormatKey === "alt" && hasAltVariant ? `${product.id}${ALT_VARIANT_SUFFIX}` : String(product.id))
+    : "";
 
   useEffect(() => {
     if (availableToAdd <= 0) {
@@ -80,6 +99,7 @@ export default function ProductPage() {
             id: productDoc.$id,
             name: productDoc.name,
             price: Number(productDoc.price),
+            price_alt: Number(productDoc.price_alt || 0),
             stock: Number(productDoc.stock || 0),
             image_url: productDoc.image_url,
             image_url_2: productDoc.image_url_2 || "",
@@ -90,6 +110,7 @@ export default function ProductPage() {
             description_long: productDoc.description_long || "",
             description: productDoc.description,
             format: productDoc.format,
+            format_alt: productDoc.format_alt || "",
             ingredients: productDoc.ingredients,
             ingredients_panel_title: productDoc.ingredients_panel_title || "",
             ingredients_panel_content: productDoc.ingredients_panel_content || "",
@@ -128,6 +149,12 @@ export default function ProductPage() {
   }, [galleryImages]);
 
   useEffect(() => {
+    if (!hasAltVariant && selectedFormatKey === "alt") {
+      setSelectedFormatKey("primary");
+    }
+  }, [hasAltVariant, selectedFormatKey]);
+
+  useEffect(() => {
     if (isIngredientsOpen || isDeliveryOpen) {
       document.body.style.overflow = "hidden";
     } else {
@@ -154,9 +181,9 @@ export default function ProductPage() {
   }, [loading, product?.id]);
 
   const handleAddToCart = async () => {
-    if (product && availableToAdd > 0 && quantity > 0) {
+    if (product && availableToAdd > 0 && quantity > 0 && selectedCartProductId) {
       try {
-        await addToCart(String(product.id), Number(quantity));
+        await addToCart(selectedCartProductId, Number(quantity));
         setAddedNotify(true);
         setTimeout(() => setAddedNotify(false), 3000);
       } catch (error) {
@@ -277,12 +304,35 @@ export default function ProductPage() {
               {!!product.reviews_count && <span className="text-[10px] text-gray-400 ml-1">{product.reviews_count}</span>}
             </div>
             <p className="text-[#B29071] font-bold text-xl tracking-widest pt-1">
-              {Number(product.price).toFixed(2)} MAD
+              {selectedPrice.toFixed(2)} MAD
             </p>
             <div className="flex flex-wrap gap-3 mt-4">
-              {product.format && (
+              {product.format && !hasAltVariant && (
                 <span className="inline-block px-3 py-1 bg-gray-100 text-[10px] font-bold uppercase tracking-widest rounded">
                   Format: {product.format}
+                </span>
+              )}
+              {hasAltVariant && (
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedFormatKey("primary")}
+                    className={`px-3 py-1 text-[10px] font-bold uppercase tracking-widest rounded border transition ${selectedFormatKey === "primary" ? "border-black bg-black text-white" : "border-gray-200 bg-white text-black"}`}
+                  >
+                    {product.format}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedFormatKey("alt")}
+                    className={`px-3 py-1 text-[10px] font-bold uppercase tracking-widest rounded border transition ${selectedFormatKey === "alt" ? "border-black bg-black text-white" : "border-gray-200 bg-white text-black"}`}
+                  >
+                    {product.format_alt}
+                  </button>
+                </div>
+              )}
+              {selectedFormat && (
+                <span className="inline-block px-3 py-1 bg-gray-100 text-[10px] font-bold uppercase tracking-widest rounded">
+                  Sélection: {selectedFormat}
                 </span>
               )}
               <span className={`inline-block px-3 py-1 text-[10px] font-bold uppercase tracking-widest rounded ${product.stock > 0 ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>

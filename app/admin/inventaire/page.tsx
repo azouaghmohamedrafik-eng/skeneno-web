@@ -25,6 +25,7 @@ interface Product {
   id: string; 
   name: string; 
   price: number; 
+  price_alt?: number;
   stock: number; 
   image_url: string;
   image_url_2?: string;
@@ -35,6 +36,7 @@ interface Product {
   description_long?: string;
   description: string; 
   format: string; 
+  format_alt?: string;
   ingredients: string; 
   ingredients_panel_title?: string;
   ingredients_panel_content?: string;
@@ -61,7 +63,7 @@ export default function InventoryPage() {
   const [currentId, setCurrentId] = useState<string | null>(null);
   
   const [form, setForm] = useState({ 
-    name: "", price: "", format: "", miniTitle: "", desc: "", descShort: "", descLong: "", ing: "", ingredientsTitle: "", ingredientsContent: "", cat: "", img: "", img2: "", img3: "", img4: "",
+    name: "", price: "", priceAlt: "", format: "", formatAlt: "", miniTitle: "", desc: "", descShort: "", descLong: "", ing: "", ingredientsTitle: "", ingredientsContent: "", cat: "", img: "", img2: "", img3: "", img4: "",
     isOffer: false, isGift: false, isVisage: false, isCorps: false, isCheveux: false, isSpecial: false,
     isSuggested: false // NUEVO ESTADO
   });
@@ -88,6 +90,7 @@ export default function InventoryPage() {
         id: d.$id,
         name: d.name,
         price: d.price,
+        price_alt: Number((d as any).price_alt || 0),
         stock: d.stock || 0,
         image_url: d.image_url,
         image_url_2: (d as any).image_url_2 || "",
@@ -98,6 +101,7 @@ export default function InventoryPage() {
         description_long: (d as any).description_long || "",
         description: d.description,
         format: d.format,
+        format_alt: (d as any).format_alt || "",
         ingredients: d.ingredients,
         ingredients_panel_title: (d as any).ingredients_panel_title || "",
         ingredients_panel_content: (d as any).ingredients_panel_content || "",
@@ -173,6 +177,7 @@ export default function InventoryPage() {
     const data: any = {
       name: form.name, 
       price: parseFloat(form.price), 
+      price_alt: form.priceAlt.trim() ? parseFloat(form.priceAlt) : null,
       image_url: form.img || null, 
       image_url_2: form.img2 || null,
       image_url_3: form.img3 || null,
@@ -182,6 +187,7 @@ export default function InventoryPage() {
       description_long: form.descLong || "",
       description: form.desc, 
       format: form.format, 
+      format_alt: form.formatAlt || "",
       ingredients: form.ing,
       ingredients_panel_title: form.ingredientsTitle || "",
       ingredients_panel_content: form.ingredientsContent || "",
@@ -203,7 +209,7 @@ export default function InventoryPage() {
       } else {
         await databases.createDocument(DATABASE_ID, 'products', ID.unique(), data);
       }
-      setForm({ name: "", price: "", format: "", miniTitle: "", desc: "", descShort: "", descLong: "", ing: "", ingredientsTitle: "", ingredientsContent: "", cat: "", img: "", img2: "", img3: "", img4: "", isOffer: false, isGift: false, isVisage: false, isCorps: false, isCheveux: false, isSpecial: false, isSuggested: false });
+      setForm({ name: "", price: "", priceAlt: "", format: "", formatAlt: "", miniTitle: "", desc: "", descShort: "", descLong: "", ing: "", ingredientsTitle: "", ingredientsContent: "", cat: "", img: "", img2: "", img3: "", img4: "", isOffer: false, isGift: false, isVisage: false, isCorps: false, isCheveux: false, isSpecial: false, isSuggested: false });
       setIsEditing(false);
       fetchData();
       notify("Produit enregistré !", "success");
@@ -243,7 +249,9 @@ export default function InventoryPage() {
     setForm({
       name: p.name,
       price: p.price.toString(),
+      priceAlt: p.price_alt ? p.price_alt.toString() : "",
       format: p.format || "",
+      formatAlt: p.format_alt || "",
       miniTitle: p.mini_title || "",
       desc: p.description || "",
       descShort: p.description_short || "",
@@ -300,12 +308,20 @@ export default function InventoryPage() {
                   <input type="number" step="0.01" placeholder="Prix (MAD)" value={form.price} onChange={e => setForm({...form, price: e.target.value})} className="w-full border p-3 rounded text-sm outline-none focus:border-[#B29071]" required />
                   <p className="text-[9px] text-gray-400 italic px-1">Prix de vente en Dirhams</p>
               </div>
+              <div className="space-y-1">
+                  <input type="number" step="0.01" placeholder="Prix 2 (MAD) optionnel" value={form.priceAlt} onChange={e => setForm({...form, priceAlt: e.target.value})} className="w-full border p-3 rounded text-sm outline-none focus:border-[#B29071]" />
+                  <p className="text-[9px] text-gray-400 italic px-1">Prix du second format (ex: 200ml)</p>
+              </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-1">
                 <input type="text" placeholder="Format" value={form.format} onChange={e => setForm({...form, format: e.target.value})} className="w-full border p-3 rounded text-sm outline-none focus:border-[#B29071]" />
                 <p className="text-[9px] text-gray-400 italic px-1">Ex: 50ml, 100g, etc.</p>
+              </div>
+              <div className="space-y-1">
+                <input type="text" placeholder="Format 2 (optionnel)" value={form.formatAlt} onChange={e => setForm({...form, formatAlt: e.target.value})} className="w-full border p-3 rounded text-sm outline-none focus:border-[#B29071]" />
+                <p className="text-[9px] text-gray-400 italic px-1">Ex: 200ml</p>
               </div>
               <div className="space-y-1">
                 <input type="text" placeholder="Mini titre" value={form.miniTitle} onChange={e => setForm({...form, miniTitle: e.target.value})} className="w-full border p-3 rounded text-sm outline-none focus:border-[#B29071]" />
@@ -421,7 +437,7 @@ export default function InventoryPage() {
 
             <div className="flex justify-end gap-3">
               {isEditing && (
-                <button type="button" onClick={() => {setIsEditing(false); setForm({name:"", price:"", format:"", miniTitle:"", desc:"", descShort:"", descLong:"", ing:"", ingredientsTitle:"", ingredientsContent:"", cat:"", img:"", img2:"", img3:"", img4:"", isOffer: false, isGift: false, isVisage: false, isCorps: false, isCheveux: false, isSpecial: false, isSuggested: false})}} className="px-6 py-3 text-xs font-bold uppercase text-gray-400">Annuler</button>
+                <button type="button" onClick={() => {setIsEditing(false); setForm({name:"", price:"", priceAlt:"", format:"", formatAlt:"", miniTitle:"", desc:"", descShort:"", descLong:"", ing:"", ingredientsTitle:"", ingredientsContent:"", cat:"", img:"", img2:"", img3:"", img4:"", isOffer: false, isGift: false, isVisage: false, isCorps: false, isCheveux: false, isSpecial: false, isSuggested: false})}} className="px-6 py-3 text-xs font-bold uppercase text-gray-400">Annuler</button>
               )}
               <button type="submit" disabled={loading || Object.values(uploading).some(Boolean)} className="bg-black text-white px-10 py-3 rounded text-xs font-bold uppercase tracking-widest hover:bg-[#B29071] transition disabled:opacity-50">
                 {loading ? <Loader2 className="w-4 h-4 animate-spin mx-auto"/> : "Enregistrer"}
@@ -464,7 +480,7 @@ export default function InventoryPage() {
                   <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${p.stock > 0 ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
                     {p.stock} un.
                   </span>
-                  <span className="text-[11px] font-bold text-[#B29071]">{p.price.toFixed(2)} MAD</span>
+                  <span className="text-[11px] font-bold text-[#B29071]">{p.price.toFixed(2)} MAD{(p.price_alt || 0) > 0 ? ` · ${Number(p.price_alt).toFixed(2)} MAD` : ""}</span>
                 </div>
               </div>
             </div>
@@ -519,7 +535,7 @@ export default function InventoryPage() {
                     {p.stock} un.
                   </span>
                 </td>
-                <td className="p-4 font-bold text-[#B29071]">{p.price.toFixed(2)} MAD</td>
+                <td className="p-4 font-bold text-[#B29071]">{p.price.toFixed(2)} MAD{(p.price_alt || 0) > 0 ? ` · ${Number(p.price_alt).toFixed(2)} MAD` : ""}</td>
                 <td className="p-4 text-right">
                   <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100">
                     <button onClick={() => startEditProduct(p)} className="text-gray-400 hover:text-[#B29071] p-2 hover:bg-gray-50 rounded-full"><Pencil className="w-4 h-4"/></button>

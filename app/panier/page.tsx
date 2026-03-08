@@ -8,15 +8,18 @@ import { Trash2, ShoppingBag, ArrowRight, Loader2, Minus, Plus, ChevronLeft, Che
 import Link from "next/link";
 
 const NAVBAR_CONFIG_PREFIX = "__NAVBAR_CONFIG__:";
+const ALT_VARIANT_SUFFIX = "::alt";
 
 interface FullProduct {
   $id: string;
+  baseProductId: string;
   name: string;
   price: number;
   image_url: string;
   quantity: number;
   stock: number; 
   format: string; 
+  isGift?: boolean;
   cartDocId: string; 
 }
 
@@ -40,6 +43,13 @@ export default function PanierPage() {
   const [menuVisageActive, setMenuVisageActive] = useState(true);
   const [menuCorpsActive, setMenuCorpsActive] = useState(true);
   const [menuCheveuxActive, setMenuCheveuxActive] = useState(true);
+
+  const getBaseProductId = (cartProductId: string) => (
+    cartProductId.endsWith(ALT_VARIANT_SUFFIX)
+      ? cartProductId.slice(0, -ALT_VARIANT_SUFFIX.length)
+      : cartProductId
+  );
+  const isAltVariantProductId = (cartProductId: string) => cartProductId.endsWith(ALT_VARIANT_SUFFIX);
 
   useEffect(() => {
     async function loadAllData() {
@@ -80,21 +90,48 @@ export default function PanierPage() {
           }
         }
 
-        const ids = cart.map((item) => item.product_id).filter(id => id && id.length > 5 && id !== "gift_box" && id !== "gift_bag");
+        const productRows = cart.filter((item) => {
+          const baseId = getBaseProductId(String(item.product_id || ""));
+          return baseId && baseId !== "gift_box" && baseId !== "gift_bag";
+        });
+        const ids = Array.from(new Set(productRows.map((item) => getBaseProductId(String(item.product_id || "")))));
 
         if (ids.length > 0) {
           const response = await databases.listDocuments(DATABASE_ID, "products", [Query.equal("$id", ids)]);
-          const fullData = response.documents.map((doc: any) => {
-            const cartInfo = cart.find((c) => c.product_id === doc.$id);
+          const docById = new Map<string, any>();
+          response.documents.forEach((doc: any) => docById.set(doc.$id, doc));
+          const fullData = productRows.map((cartRow) => {
+            const cartProductId = String(cartRow.product_id || "");
+            const baseId = getBaseProductId(cartProductId);
+            const doc = docById.get(baseId);
+            if (!doc) {
+              return {
+                $id: cartProductId,
+                baseProductId: baseId,
+                name: "Produit indisponible",
+                price: 0,
+                image_url: "/img/placeholder.jpg",
+                quantity: Number(cartRow.quantity || 1),
+                stock: 0,
+                format: "",
+                isGift: baseId === currentGiftId,
+                cartDocId: cartRow.$id || ""
+              };
+            }
+            const isAlt = isAltVariantProductId(cartProductId);
+            const hasAlt = Boolean(String(doc.format_alt || "").trim()) && Number(doc.price_alt || 0) > 0;
+            const useAlt = isAlt && hasAlt;
             return {
-              $id: doc.$id,
+              $id: cartProductId,
+              baseProductId: doc.$id,
               name: doc.name,
-              price: doc.price,
+              price: Number(useAlt ? doc.price_alt : doc.price),
               image_url: doc.image_url,
-              quantity: cartInfo?.quantity || 1,
-              stock: doc.stock || 0, 
-              format: doc.format || "", 
-              cartDocId: cartInfo?.$id || "" 
+              quantity: Number(cartRow.quantity || 1),
+              stock: Number(doc.stock || 0),
+              format: String(useAlt ? doc.format_alt : doc.format || ""),
+              isGift: doc.$id === currentGiftId,
+              cartDocId: cartRow.$id || ""
             };
           });
           setProducts(fullData);
@@ -128,18 +165,18 @@ export default function PanierPage() {
     loadAllData();
   }, [cart]);
 
-  const handleQtyChange = async (productId: string, delta: number) => {
-    const product = products.find(p => p.$id === productId);
-    const pkgItem = cart.find(item => item.product_id === productId);
+  const handleQtyChange = async (cartProductId: string, delta: number) => {
+    const product = products.find(p => p.$id === cartProductId);
+    const pkgItem = cart.find(item => item.product_id === cartProductId);
     const currentQty = product ? product.quantity : (pkgItem ? pkgItem.quantity : 0);
     const currentDocId = product ? product.cartDocId : (pkgItem ? pkgItem.$id : "");
     if (!currentDocId) return;
-    if (productId === giftRules.productId) return; 
+    if (getBaseProductId(cartProductId) === giftRules.productId) return; 
     if (delta === -1 && currentQty === 1) { await removeFromCart(currentDocId); return; }
     const stockLimit = product ? product.stock : 99;
     if (delta === 1 && currentQty >= stockLimit) return;
-    setUpdatingId(productId);
-    try { await addToCart(productId, delta); } finally { setUpdatingId(null); }
+    setUpdatingId(cartProductId);
+    try { await addToCart(cartProductId, delta); } finally { setUpdatingId(null); }
   };
 
   // --- CORRECCIÓN: EL BOTÓN SOLO DA FEEDBACK VISUAL AHORA ---
@@ -152,7 +189,7 @@ export default function PanierPage() {
     setTimeout(() => setMsgStatus(false), 2000);
   };
 
-  const productsTotal = products.reduce((sum, p) => sum + (p.$id === giftRules.productId ? 0 : p.price * p.quantity), 0);
+  const productsTotal = products.reduce((sum, p) => sum + ((p.isGift || p.baseProductId === giftRules.productId) ? 0 : p.price * p.quantity), 0);
   const boxInCart = cart.find(item => item.product_id === "gift_box");
   const bagInCart = cart.find(item => item.product_id === "gift_bag");
   const packagingTotal = (boxInCart ? (packaging?.box_price * boxInCart.quantity || 0) : 0) + (bagInCart ? (packaging?.bag_price * bagInCart.quantity || 0) : 0);
@@ -225,12 +262,15 @@ export default function PanierPage() {
           )}
 
           <div className="divide-y divide-gray-100">
-            {products.filter(p => p.$id !== giftRules.productId).map((p) => (
+            {products.filter(p => !(p.isGift || p.baseProductId === giftRules.productId)).map((p) => (
               <div key={p.$id} className="py-6 flex gap-6 items-start">
                 <img src={p.image_url} className="w-20 h-28 object-cover rounded-lg bg-gray-50" alt={p.name} />
                 <div className="flex-1 space-y-3">
                   <div className="flex justify-between">
-                    <h3 className="font-bold text-xs uppercase tracking-wider">{p.name}</h3>
+                    <div>
+                      <h3 className="font-bold text-xs uppercase tracking-wider">{p.name}</h3>
+                      {p.format && <p className="text-[10px] uppercase text-gray-500 mt-1">{p.format}</p>}
+                    </div>
                     <p className="font-bold text-sm">{p.price.toFixed(2)} MAD</p>
                   </div>
                   <div className="flex items-center gap-6">

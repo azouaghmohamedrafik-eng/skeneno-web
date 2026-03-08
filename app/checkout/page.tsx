@@ -19,12 +19,16 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 
+const ALT_VARIANT_SUFFIX = "::alt";
+
 interface ProductDetail {
   $id: string;
+  cartProductId: string;
   name: string;
   price: number;
   quantity: number;
   image_url: string;
+  format?: string;
   isGift?: boolean;
 }
 
@@ -48,6 +52,13 @@ export default function CheckoutPage() {
   const router = useRouter();
   const { cart, clearCart } = useCart();
   
+  const getBaseProductId = (cartProductId: string) => (
+    cartProductId.endsWith(ALT_VARIANT_SUFFIX)
+      ? cartProductId.slice(0, -ALT_VARIANT_SUFFIX.length)
+      : cartProductId
+  );
+  const isAltVariantProductId = (cartProductId: string) => cartProductId.endsWith(ALT_VARIANT_SUFFIX);
+
   const [products, setProducts] = useState<ProductDetail[]>([]);
   const [packagingInfo, setPackagingInfo] = useState<any>(null);
   const [giftRules, setGiftRules] = useState({ active: false, threshold: 0, productId: "" });
@@ -128,31 +139,61 @@ export default function CheckoutPage() {
           setDeliverySettings(deliveryRes.documents[0] as any);
         }
 
-        const ids = cart.map(item => item.product_id).filter(id => id && id !== "gift_box" && id !== "gift_bag");
+        const productRows = cart.filter((item) => {
+          const baseId = getBaseProductId(String(item.product_id || ""));
+          return baseId && baseId !== "gift_box" && baseId !== "gift_bag";
+        });
+        const ids = Array.from(new Set(productRows.map((item) => getBaseProductId(String(item.product_id || "")))));
         let fullData: ProductDetail[] = [];
           
         if (ids.length > 0) {
           const res = await databases.listDocuments(DATABASE_ID, 'products', [Query.equal('$id', ids)]);
-          fullData = res.documents.map((doc: any) => ({
-            $id: doc.$id,
-            name: doc.name,
-            price: doc.price,
-            image_url: doc.image_url,
-            quantity: cart.find(c => c.product_id === doc.$id)?.quantity || 1,
-            isGift: doc.$id === currentGiftId
-          }));
+          const docById = new Map<string, any>();
+          res.documents.forEach((doc: any) => docById.set(doc.$id, doc));
+          fullData = productRows.map((cartRow) => {
+            const cartProductId = String(cartRow.product_id || "");
+            const baseId = getBaseProductId(cartProductId);
+            const doc = docById.get(baseId);
+            if (!doc) {
+              return {
+                $id: baseId,
+                cartProductId,
+                name: "Produit indisponible",
+                price: 0,
+                image_url: "/img/placeholder.jpg",
+                quantity: Number(cartRow.quantity || 1),
+                format: "",
+                isGift: baseId === currentGiftId
+              };
+            }
+            const isAlt = isAltVariantProductId(cartProductId);
+            const hasAlt = Boolean(String(doc.format_alt || "").trim()) && Number(doc.price_alt || 0) > 0;
+            const useAlt = isAlt && hasAlt;
+            return {
+              $id: doc.$id,
+              cartProductId,
+              name: doc.name,
+              price: Number(useAlt ? doc.price_alt : doc.price),
+              image_url: doc.image_url,
+              quantity: Number(cartRow.quantity || 1),
+              format: String(useAlt ? doc.format_alt : doc.format || ""),
+              isGift: doc.$id === currentGiftId
+            };
+          });
         }
 
         // Añadir regalo visualmente si existe en carrito
-        if (currentGiftId && cart.some(c => c.product_id === currentGiftId)) {
+        if (currentGiftId && cart.some(c => getBaseProductId(String(c.product_id || "")) === currentGiftId)) {
           try {
             const giftProd = await databases.getDocument(DATABASE_ID, 'gift_inventory', currentGiftId);
             fullData.push({
               $id: giftProd.$id,
+              cartProductId: giftProd.$id,
               name: giftProd.name,
               price: 0,
               quantity: 1,
               image_url: giftProd.image_url,
+              format: "",
               isGift: true
             } as any);
           } catch (e) {}
@@ -171,10 +212,12 @@ export default function CheckoutPage() {
               const giftProd = await databases.getDocument(DATABASE_ID, 'gift_inventory', currentGiftId);
               fullData.push({
                 $id: giftProd.$id,
+                cartProductId: giftProd.$id,
                 name: giftProd.name,
                 price: 0,
                 quantity: 1,
                 image_url: giftProd.image_url,
+                format: "",
                 isGift: true
               } as any);
             } catch (e) {}
@@ -280,7 +323,7 @@ export default function CheckoutPage() {
     setOrderLoading(true);
 
     try {
-      let itemsArray = products.map(p => `${p.quantity}x ${p.name}${p.isGift ? ' (OFFERT)' : ''}`);
+      let itemsArray = products.map(p => `${p.quantity}x ${p.name}${p.format ? ` (${p.format})` : ""}${p.isGift ? ' (OFFERT)' : ''}`);
       if (boxInCart) itemsArray.push(`${boxInCart.quantity}x Coffret Cadeau`);
       if (bagInCart) itemsArray.push(`${bagInCart.quantity}x Pochette Cadeau`);
       
@@ -398,13 +441,16 @@ export default function CheckoutPage() {
           <h3 className="text-xs font-bold uppercase tracking-widest mb-8 border-b pb-4">Résumé</h3>
           <div className="space-y-4 mb-10">
             {products.map(p => (
-              <div key={p.$id} className={`flex justify-between items-center text-sm ${p.isGift ? 'text-amber-600 font-bold' : ''}`}>
+              <div key={`${p.cartProductId}-${p.$id}`} className={`flex justify-between items-center text-sm ${p.isGift ? 'text-amber-600 font-bold' : ''}`}>
                 <div className="flex items-center gap-3">
                   <div className="relative w-14 h-14 rounded-xl border border-gray-200 bg-white flex items-center justify-center">
                     <img src={p.image_url} className="w-10 h-10 rounded object-cover" />
                     <span className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-black text-white text-[10px] font-bold flex items-center justify-center">{p.quantity}</span>
                   </div>
-                  <span>{p.name} {p.isGift && "🎁"}</span>
+                  <div>
+                    <span>{p.name} {p.isGift && "🎁"}</span>
+                    {p.format && !p.isGift && <p className="text-xs text-gray-500 uppercase mt-0.5">{p.format}</p>}
+                  </div>
                 </div>
                 <span>{p.isGift ? "OFFERT" : `${(p.price * p.quantity).toFixed(2)} MAD`}</span>
               </div>
@@ -441,9 +487,11 @@ export default function CheckoutPage() {
             )}
             {savedGiftMessage && <div className="pt-2 italic text-xs text-gray-500 border-l-2 border-amber-300 pl-2">"{savedGiftMessage}"</div>}
             <div className="pt-6 space-y-3">
-              <div className="flex gap-2">
-                <input value={couponInput} onChange={e => setCouponInput(e.target.value)} placeholder="Code promo" className="flex-1 border p-3 rounded text-sm outline-none" />
-                <button type="button" onClick={applyCoupon} disabled={couponApplying} className="px-4 py-3 rounded bg-black text-white text-xs font-bold uppercase hover:bg-[#B29071] transition">
+              <div className="flex gap-2 items-stretch">
+                <div className="min-w-0 flex-1">
+                  <input value={couponInput} onChange={e => setCouponInput(e.target.value)} placeholder="Code promo" className="w-full border p-3 rounded text-sm outline-none" />
+                </div>
+                <button type="button" onClick={applyCoupon} disabled={couponApplying} className="shrink-0 px-4 py-3 rounded bg-black text-white text-xs font-bold uppercase hover:bg-[#B29071] transition">
                   {couponApplying ? "..." : "Appliquer"}
                 </button>
               </div>

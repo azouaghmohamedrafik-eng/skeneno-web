@@ -14,6 +14,7 @@ import { getStoreSettings } from "@/lib/data";
 
 const NAVBAR_CONFIG_PREFIX = "__NAVBAR_CONFIG__:";
 const PACKAGING_CACHE_KEY = "skineno_packaging_cache";
+const ALT_VARIANT_SUFFIX = "::alt";
 
 export default function Navbar() {
   const router = useRouter();
@@ -54,7 +55,7 @@ export default function Navbar() {
   const searchPanelRef = useRef<HTMLDivElement | null>(null);
   const mobileSearchPanelRef = useRef<HTMLDivElement | null>(null);
   const searchProductsScrollRef = useRef<HTMLDivElement | null>(null);
-  const [cartDrawerItems, setCartDrawerItems] = useState<Array<{ id: string; name: string; image_url: string; price: number; quantity: number; cartDocId: string; isGift?: boolean }>>([]);
+  const [cartDrawerItems, setCartDrawerItems] = useState<Array<{ id: string; cartProductId: string; baseProductId: string; name: string; image_url: string; price: number; quantity: number; format?: string; cartDocId: string; isGift?: boolean }>>([]);
   const [cartDrawerLoading, setCartDrawerLoading] = useState(false);
   const [packaging, setPackaging] = useState<any>(null);
   const [giftRules, setGiftRules] = useState({ active: false, threshold: 0, name: "Cadeau", productId: "" });
@@ -63,6 +64,12 @@ export default function Navbar() {
   const [msgStatus, setMsgStatus] = useState(false);
   const [boxSize, setBoxSize] = useState("Moyen");
   const [bagSize, setBagSize] = useState("Petit");
+  const getBaseProductId = (cartProductId: string) => (
+    cartProductId.endsWith(ALT_VARIANT_SUFFIX)
+      ? cartProductId.slice(0, -ALT_VARIANT_SUFFIX.length)
+      : cartProductId
+  );
+  const isAltVariantProductId = (cartProductId: string) => cartProductId.endsWith(ALT_VARIANT_SUFFIX);
 
   // 1. EFECTO ULTRA-RÁPIDO PARA MENSAJES (Independiente de todo)
   useEffect(() => {
@@ -257,63 +264,54 @@ export default function Navbar() {
         setCartDrawerItems([]);
         return;
       }
-      const productRows = cart.filter((item) =>
-        item.product_id &&
-        item.product_id.length > 5 &&
-        item.product_id !== "gift_box" &&
-        item.product_id !== "gift_bag"
-      );
+      const productRows = cart.filter((item) => {
+        const baseId = getBaseProductId(String(item.product_id || ""));
+        return baseId && baseId !== "gift_box" && baseId !== "gift_bag";
+      });
       if (productRows.length === 0) {
         setCartDrawerItems([]);
         return;
       }
       try {
         setCartDrawerLoading(true);
-        const ids = productRows.map((item) => item.product_id);
+        const ids = Array.from(new Set(productRows.map((item) => getBaseProductId(String(item.product_id || "")))));
         const response = await databases.listDocuments(DATABASE_ID, "products", [Query.equal("$id", ids), Query.limit(100)]);
-        const qtyById: Record<string, { quantity: number; cartDocId: string }> = {};
-        productRows.forEach((row) => {
-          qtyById[row.product_id] = { quantity: row.quantity, cartDocId: row.$id || "" };
-        });
-        const mapped: Array<{ id: string; name: string; image_url: string; price: number; quantity: number; cartDocId: string; isGift?: boolean }> = response.documents
-          .map((doc: any) => ({
-            id: doc.$id,
+        const docById = new Map<string, any>();
+        response.documents.forEach((doc: any) => docById.set(doc.$id, doc));
+        const mapped = productRows.map((row) => {
+          const cartProductId = String(row.product_id || "");
+          const baseId = getBaseProductId(cartProductId);
+          const doc = docById.get(baseId);
+          if (!doc) {
+            return {
+              id: cartProductId,
+              cartProductId,
+              baseProductId: baseId,
+              name: "Produit indisponible",
+              image_url: "/img/placeholder.jpg",
+              price: 0,
+              quantity: Number(row.quantity || 1),
+              format: "",
+              cartDocId: row.$id || "",
+              isGift: Boolean(giftRules.productId && baseId === giftRules.productId)
+            };
+          }
+          const isAlt = isAltVariantProductId(cartProductId);
+          const hasAlt = Boolean(String(doc.format_alt || "").trim()) && Number(doc.price_alt || 0) > 0;
+          const useAlt = isAlt && hasAlt;
+          return {
+            id: cartProductId,
+            cartProductId,
+            baseProductId: doc.$id,
             name: doc.name,
             image_url: doc.image_url || "/img/placeholder.jpg",
-            price: Number(doc.price || 0),
-            quantity: Number(qtyById[doc.$id]?.quantity || 1),
-            cartDocId: qtyById[doc.$id]?.cartDocId || "",
-          }))
-          .sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id));
-        const loadedIds = new Set(mapped.map((item) => item.id));
-        const missingIds = ids.filter((id) => !loadedIds.has(id));
-        for (const missingId of missingIds) {
-          const cartInfo = qtyById[missingId];
-          if (!cartInfo) continue;
-          if (giftRules.productId && missingId === giftRules.productId) {
-            try {
-              const giftDoc: any = await databases.getDocument(DATABASE_ID, "gift_inventory", missingId);
-              mapped.push({
-                id: giftDoc.$id,
-                name: giftDoc.name || "Cadeau",
-                image_url: giftDoc.image_url || "/img/placeholder.jpg",
-                price: 0,
-                quantity: Number(cartInfo.quantity || 1),
-                cartDocId: cartInfo.cartDocId || "",
-                isGift: true
-              });
-              continue;
-            } catch (error) {}
-          }
-          mapped.push({
-            id: missingId,
-            name: "Produit indisponible",
-            image_url: "/img/placeholder.jpg",
-            price: 0,
-            quantity: Number(cartInfo.quantity || 1),
-            cartDocId: cartInfo.cartDocId || ""
-          });
-        }
+            price: Number(useAlt ? doc.price_alt : doc.price || 0),
+            quantity: Number(row.quantity || 1),
+            format: String(useAlt ? doc.format_alt : doc.format || ""),
+            cartDocId: row.$id || "",
+            isGift: Boolean(giftRules.productId && doc.$id === giftRules.productId)
+          };
+        });
         setCartDrawerItems(mapped);
       } catch (error) {
         setCartDrawerItems([]);
@@ -422,7 +420,7 @@ export default function Navbar() {
   const routineProducts = suggestedRoutineProducts;
   const hasDrawerLineItems = cartDrawerItems.length > 0 || Boolean(boxInCart) || Boolean(bagInCart);
   const productsTotalDrawer = cartDrawerItems.reduce((sum, item) => {
-    if (giftRules.productId && item.id === giftRules.productId) return sum;
+    if (giftRules.productId && item.baseProductId === giftRules.productId) return sum;
     return sum + (item.price * item.quantity);
   }, 0);
   const packagingTotalDrawer = (boxInCart ? (Number(packaging?.box_price || 0) * boxInCart.quantity) : 0) + (bagInCart ? (Number(packaging?.bag_price || 0) * bagInCart.quantity) : 0);
@@ -869,16 +867,17 @@ export default function Navbar() {
               </div>
             )}
             {!cartDrawerLoading && cartDrawerItems.map((item) => (
-              <div key={item.id} className="flex gap-4 border-b border-[#e2d3bf] pb-4">
+              <div key={item.cartDocId || item.id} className="flex gap-4 border-b border-[#e2d3bf] pb-4">
                 <img src={item.image_url} alt={item.name} className="w-[86px] h-[86px] rounded-xl object-cover bg-[#fafafa]" />
                 <div className="flex-1 min-w-0">
                   <p className="text-[20px] font-serif uppercase leading-tight line-clamp-2">{item.name}</p>
+                  {item.format && <p className="text-[10px] uppercase text-gray-500 mt-1">{item.format}</p>}
                   <p className="text-[11px] mt-1 font-bold">{item.price.toFixed(2)} MAD</p>
                   <div className="mt-3 flex items-center justify-between">
                     <div className="flex items-center border border-[#d9c8b1] rounded-full px-2 py-1 gap-3 bg-white">
-                      <button type="button" onClick={() => item.quantity <= 1 ? removeFromCart(item.cartDocId) : addToCart(item.id, -1)} className="text-xs font-bold">-</button>
+                      <button type="button" onClick={() => item.quantity <= 1 ? removeFromCart(item.cartDocId) : addToCart(item.cartProductId, -1)} className="text-xs font-bold">-</button>
                       <span className="text-xs font-bold min-w-[16px] text-center">{item.quantity}</span>
-                      <button type="button" onClick={() => addToCart(item.id, 1)} className="text-xs font-bold">+</button>
+                      <button type="button" onClick={() => addToCart(item.cartProductId, 1)} className="text-xs font-bold">+</button>
                     </div>
                     <button type="button" onClick={() => removeFromCart(item.cartDocId)} className="text-[11px] underline">Supprimer</button>
                   </div>
@@ -1028,16 +1027,17 @@ export default function Navbar() {
               </div>
             )}
             {!cartDrawerLoading && cartDrawerItems.map((item) => (
-              <div key={item.id} className="flex gap-3 border-b border-[#e2d3bf] pb-4">
+              <div key={item.cartDocId || item.id} className="flex gap-3 border-b border-[#e2d3bf] pb-4">
                 <img src={item.image_url} alt={item.name} className="w-16 h-16 rounded-xl object-cover bg-[#fafafa]" />
                 <div className="flex-1 min-w-0">
                   <p className="text-[11px] font-bold uppercase truncate">{item.name}</p>
+                  {item.format && <p className="text-[9px] uppercase text-gray-500 mt-1 truncate">{item.format}</p>}
                   <p className="text-[11px] mt-1">{item.price.toFixed(2)} MAD</p>
                   <div className="mt-2 flex items-center justify-between">
                     <div className="flex items-center border border-gray-200 rounded-full px-2 py-1 gap-3">
-                      <button type="button" onClick={() => item.quantity <= 1 ? removeFromCart(item.cartDocId) : addToCart(item.id, -1)} className="text-xs font-bold">-</button>
+                      <button type="button" onClick={() => item.quantity <= 1 ? removeFromCart(item.cartDocId) : addToCart(item.cartProductId, -1)} className="text-xs font-bold">-</button>
                       <span className="text-xs font-bold min-w-[16px] text-center">{item.quantity}</span>
-                      <button type="button" onClick={() => addToCart(item.id, 1)} className="text-xs font-bold">+</button>
+                      <button type="button" onClick={() => addToCart(item.cartProductId, 1)} className="text-xs font-bold">+</button>
                     </div>
                     <button type="button" onClick={() => removeFromCart(item.cartDocId)} className="text-[9px] uppercase underline">Supprimer</button>
                   </div>
