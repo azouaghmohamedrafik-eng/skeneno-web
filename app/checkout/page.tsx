@@ -28,6 +28,22 @@ interface ProductDetail {
   isGift?: boolean;
 }
 
+interface OrderItemRow {
+  product_id: string;
+  quantity: number;
+  isGift: boolean;
+  item_type: "product" | "packaging";
+}
+
+interface DeliverySettings {
+  panel_title?: string;
+  section_1_title?: string;
+  section_1_content?: string;
+  section_2_title?: string;
+  section_2_content_html?: string;
+  notes_html?: string;
+}
+
 export default function CheckoutPage() {
   const router = useRouter();
   const { cart, clearCart } = useCart();
@@ -46,11 +62,16 @@ export default function CheckoutPage() {
   const [useSaved, setUseSaved] = useState(true);
   const [hasProfileInfo, setHasProfileInfo] = useState(false);
   const [savedGiftMessage, setSavedGiftMessage] = useState("");
+  const [boxSize] = useState("Moyen");
+  const [bagSize] = useState("Petit");
   const [couponInput, setCouponInput] = useState("");
   const [appliedCoupon, setAppliedCoupon] = useState<any>(null);
   const [couponApplying, setCouponApplying] = useState(false);
   const [couponError, setCouponError] = useState<string | null>(null);
   const [discountTotal, setDiscountTotal] = useState(0);
+  const [paymentMethod, setPaymentMethod] = useState<"cod">("cod");
+  const [deliverySettings, setDeliverySettings] = useState<DeliverySettings | null>(null);
+  const [activePolicyModal, setActivePolicyModal] = useState<null | "shipping">(null);
 
   useEffect(() => {
     const msg = localStorage.getItem("skineno_gift_message") || "";
@@ -58,31 +79,53 @@ export default function CheckoutPage() {
 
     async function initCheckout() {
       try {
-        const user = await account.get();
-        setUserId(user.$id);
+        const PACKAGING_CACHE_KEY = "skineno_packaging_cache";
+        const cachedPackaging = localStorage.getItem(PACKAGING_CACHE_KEY);
+        if (cachedPackaging) {
+          try {
+            const cachedData: any = JSON.parse(cachedPackaging);
+            setPackagingInfo(cachedData);
+            setGiftRules({
+              active: cachedData.gift_active || false,
+              threshold: cachedData.gift_threshold || 0,
+              productId: cachedData.gift_product_id || ""
+            });
+          } catch {}
+        }
+        const user = await account.get().catch(() => null);
+        if (user) {
+          setUserId(user.$id);
+          try {
+            const profile: any = await databases.getDocument(DATABASE_ID, 'profiles', user.$id);
+            if (profile.full_name) setFullName(profile.full_name);
+            if (profile.address && profile.city && profile.phone) {
+              setAddress(profile.address);
+              setCity(profile.city);
+              setPhone(profile.phone);
+              setHasProfileInfo(true);
+            }
+          } catch {}
+        } else {
+          setUserId(null);
+        }
 
-        try {
-          const profile: any = await databases.getDocument(DATABASE_ID, 'profiles', user.$id);
-          if (profile.full_name) setFullName(profile.full_name);
-          if (profile.address && profile.city && profile.phone) {
-            setAddress(profile.address);
-            setCity(profile.city);
-            setPhone(profile.phone);
-            setHasProfileInfo(true);
-          }
-        } catch {}
-
-        const pkgRes = await databases.listDocuments(DATABASE_ID, "packaging_settings", [Query.limit(1)]);
+        const pkgRes = await databases.listDocuments(DATABASE_ID, "packaging_settings", [Query.limit(1)]).catch(() => null);
         let currentGiftId = "";
-        if (pkgRes.documents.length > 0) {
+        if (pkgRes && pkgRes.documents.length > 0) {
           const data: any = pkgRes.documents[0];
           setPackagingInfo(data);
+          localStorage.setItem(PACKAGING_CACHE_KEY, JSON.stringify(data));
           currentGiftId = data.gift_product_id || "";
           setGiftRules({ 
             active: data.gift_active || false, 
             threshold: data.gift_threshold || 0, 
             productId: currentGiftId 
           });
+        }
+
+        const deliveryRes = await databases.listDocuments(DATABASE_ID, "delivery_settings", [Query.limit(1)]).catch(() => null);
+        if (deliveryRes && deliveryRes.documents.length > 0) {
+          setDeliverySettings(deliveryRes.documents[0] as any);
         }
 
         const ids = cart.map(item => item.product_id).filter(id => id && id !== "gift_box" && id !== "gift_bag");
@@ -138,11 +181,14 @@ export default function CheckoutPage() {
           }
         }
         setProducts(fullData);
+      } catch (err) {
+        console.error("Checkout init error:", err);
+      } finally {
         setLoading(false);
-      } catch (err) { router.push("/login"); }
+      }
     }
     initCheckout();
-  }, [cart, router]);
+  }, [cart]);
 
   const productsTotal = products.reduce((sum, p) => sum + (p.isGift ? 0 : p.price * p.quantity), 0);
   const boxInCart = cart.find(item => item.product_id === "gift_box");
@@ -150,6 +196,8 @@ export default function CheckoutPage() {
   const packagingTotal = (boxInCart ? (packagingInfo?.box_price * boxInCart.quantity || 0) : 0) + 
                          (bagInCart ? (packagingInfo?.bag_price * bagInCart.quantity || 0) : 0);
   const totalFinal = Math.max(0, productsTotal + packagingTotal - discountTotal);
+  const shippingFee = totalFinal > 0 && totalFinal < 500 ? 35 : 0;
+  const shippingLabel = shippingFee === 0 ? "Gratuite" : `${shippingFee.toFixed(2)} MAD`;
 
   const calcEligibleSubtotal = (coupon: any) => {
     const productIdsEligible: string[] = Array.isArray(coupon.applicable_product_ids) ? coupon.applicable_product_ids : [];
@@ -237,12 +285,35 @@ export default function CheckoutPage() {
       if (bagInCart) itemsArray.push(`${bagInCart.quantity}x Pochette Cadeau`);
       
       const itemsSummary = itemsArray.join(", ");
+      const orderItems: OrderItemRow[] = [
+        ...products.map((p) => ({
+          product_id: p.$id,
+          quantity: p.quantity,
+          isGift: Boolean(p.isGift),
+          item_type: "product" as const,
+        })),
+        ...(boxInCart ? [{
+          product_id: "gift_box",
+          quantity: boxInCart.quantity,
+          isGift: false,
+          item_type: "packaging" as const,
+        }] : []),
+        ...(bagInCart ? [{
+          product_id: "gift_bag",
+          quantity: bagInCart.quantity,
+          isGift: false,
+          item_type: "packaging" as const,
+        }] : []),
+      ];
       const orderDoc = await databases.createDocument(DATABASE_ID, 'orders', ID.unique(), {
         user_id: userId, items: itemsSummary, total: totalFinal,
         shipping_address: `${address}, ${city}`, status: "en attente", gift_message: savedGiftMessage,
         coupon_code: appliedCoupon ? appliedCoupon.code : "",
         discount_total: discountTotal,
-        subtotal_before_discount: productsTotal
+        subtotal_before_discount: productsTotal,
+        items_json: JSON.stringify(orderItems),
+        stock_deducted: false,
+        stock_deducted_at: null
       });
 
       if (appliedCoupon && userId) {
@@ -283,14 +354,44 @@ export default function CheckoutPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-16">
         <div className="space-y-10">
           <h2 className="text-3xl font-serif">Finaliser la commande</h2>
-          <form id="orderForm" onSubmit={handlePlaceOrder} className="space-y-6">
-            <input type="text" placeholder="Nom Complet" value={fullName} onChange={e => setFullName(e.target.value)} className="w-full border-b p-3 outline-none" required />
-            <input type="text" placeholder="Adresse" value={address} onChange={e => setAddress(e.target.value)} className="w-full border-b p-3 outline-none" required />
-            <div className="grid grid-cols-2 gap-6">
-              <input type="text" placeholder="Ville" value={city} onChange={e => setCity(e.target.value)} className="w-full border-b p-3 outline-none" required />
-              <input type="tel" placeholder="Téléphone" value={phone} onChange={e => setPhone(e.target.value)} className="w-full border-b p-3 outline-none" required />
+          {!userId ? (
+            <div className="bg-white p-8 rounded-3xl shadow-xl border border-gray-100 space-y-5">
+              <p className="text-sm">Vous pouvez ajouter des produits au panier sans compte, mais vous devez vous connecter pour finaliser la commande.</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <Link href="/login" className="border border-black rounded-full py-3 text-center text-xs font-bold uppercase tracking-widest">Se connecter</Link>
+                <Link href="/register" className="bg-black text-white rounded-full py-3 text-center text-xs font-bold uppercase tracking-widest">Créer un compte</Link>
+              </div>
             </div>
-          </form>
+          ) : (
+            <form id="orderForm" onSubmit={handlePlaceOrder} className="space-y-8">
+              <input type="text" placeholder="Nom Complet" value={fullName} onChange={e => setFullName(e.target.value)} className="w-full border-b p-3 outline-none" required />
+              <input type="text" placeholder="Adresse" value={address} onChange={e => setAddress(e.target.value)} className="w-full border-b p-3 outline-none" required />
+              <div className="grid grid-cols-2 gap-6">
+                <input type="text" placeholder="Ville" value={city} onChange={e => setCity(e.target.value)} className="w-full border-b p-3 outline-none" required />
+                <input type="tel" placeholder="Téléphone" value={phone} onChange={e => setPhone(e.target.value)} className="w-full border-b p-3 outline-none" required />
+              </div>
+              <div className="space-y-3">
+                <h3 className="text-lg font-bold">Mode d’expédition</h3>
+                <div className="border border-gray-200 rounded-2xl p-4 flex items-center justify-between">
+                  <span className="text-sm">Livraison Standard</span>
+                  <span className={`text-sm font-bold ${shippingFee === 0 ? "text-green-600" : "text-black"}`}>{shippingLabel}</span>
+                </div>
+              </div>
+              <div className="space-y-3">
+                <h3 className="text-lg font-bold">Paiement</h3>
+                <p className="text-sm text-gray-500">Toutes les transactions sont sécurisées et chiffrées.</p>
+                <label className="border border-gray-200 rounded-2xl p-4 flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="payment_method"
+                    checked={paymentMethod === "cod"}
+                    onChange={() => setPaymentMethod("cod")}
+                  />
+                  <span className="text-sm font-medium">Paiement à la livraison</span>
+                </label>
+              </div>
+            </form>
+          )}
         </div>
 
         <div className="bg-white p-8 rounded-3xl shadow-xl border border-gray-50 h-fit sticky top-24">
@@ -298,15 +399,45 @@ export default function CheckoutPage() {
           <div className="space-y-4 mb-10">
             {products.map(p => (
               <div key={p.$id} className={`flex justify-between items-center text-sm ${p.isGift ? 'text-amber-600 font-bold' : ''}`}>
-                <div className="flex items-center gap-3"><img src={p.image_url} className="w-10 h-10 rounded object-cover"/> <span>{p.quantity}x {p.name} {p.isGift && "🎁"}</span></div>
+                <div className="flex items-center gap-3">
+                  <div className="relative w-14 h-14 rounded-xl border border-gray-200 bg-white flex items-center justify-center">
+                    <img src={p.image_url} className="w-10 h-10 rounded object-cover" />
+                    <span className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-black text-white text-[10px] font-bold flex items-center justify-center">{p.quantity}</span>
+                  </div>
+                  <span>{p.name} {p.isGift && "🎁"}</span>
+                </div>
                 <span>{p.isGift ? "OFFERT" : `${(p.price * p.quantity).toFixed(2)} MAD`}</span>
               </div>
             ))}
             {boxInCart && packagingInfo && (
-              <div className="flex justify-between items-center text-sm"><span className="flex items-center gap-2"><Package className="w-4 h-4"/> {boxInCart.quantity}x Coffret Cadeau</span><span>{(packagingInfo.box_price * boxInCart.quantity).toFixed(2)} MAD</span></div>
+              <div className="flex justify-between items-center text-sm">
+                <div className="flex items-center gap-3">
+                  <div className="relative w-14 h-14 rounded-xl border border-gray-200 bg-white flex items-center justify-center">
+                    <img src={packagingInfo.box_image} className="w-10 h-10 rounded object-cover" alt="Coffret cadeau" />
+                    <span className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-black text-white text-[10px] font-bold flex items-center justify-center">{boxInCart.quantity}</span>
+                  </div>
+                  <div>
+                    <p>Coffret cadeau</p>
+                    <p className="text-xs text-gray-500">{boxSize}</p>
+                  </div>
+                </div>
+                <span>{(packagingInfo.box_price * boxInCart.quantity).toFixed(2)} MAD</span>
+              </div>
             )}
             {bagInCart && packagingInfo && (
-              <div className="flex justify-between items-center text-sm"><span className="flex items-center gap-2"><ShoppingBag className="w-4 h-4"/> {bagInCart.quantity}x Pochette Cadeau</span><span>{(packagingInfo.bag_price * bagInCart.quantity).toFixed(2)} MAD</span></div>
+              <div className="flex justify-between items-center text-sm">
+                <div className="flex items-center gap-3">
+                  <div className="relative w-14 h-14 rounded-xl border border-gray-200 bg-white flex items-center justify-center">
+                    <img src={packagingInfo.bag_image} className="w-10 h-10 rounded object-cover" alt="Sac cadeau" />
+                    <span className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-black text-white text-[10px] font-bold flex items-center justify-center">{bagInCart.quantity}</span>
+                  </div>
+                  <div>
+                    <p>Sac cadeau</p>
+                    <p className="text-xs text-gray-500">{bagSize}</p>
+                  </div>
+                </div>
+                <span>{(packagingInfo.bag_price * bagInCart.quantity).toFixed(2)} MAD</span>
+              </div>
             )}
             {savedGiftMessage && <div className="pt-2 italic text-xs text-gray-500 border-l-2 border-amber-300 pl-2">"{savedGiftMessage}"</div>}
             <div className="pt-6 space-y-3">
@@ -326,11 +457,49 @@ export default function CheckoutPage() {
             </div>
             <div className="pt-4 border-t flex justify-between text-2xl font-serif"><span>Total</span><span className="text-[#B29071]">{totalFinal.toFixed(2)} MAD</span></div>
           </div>
-          <button type="submit" form="orderForm" disabled={orderLoading} className="w-full bg-black text-white py-6 rounded-full font-bold uppercase tracking-widest hover:bg-[#B29071] transition-all">
-            {orderLoading ? <Loader2 className="animate-spin mx-auto"/> : "Confirmer la commande"}
+          <button type="submit" form="orderForm" disabled={orderLoading || !userId} className="w-full bg-black text-white py-6 rounded-full font-bold uppercase tracking-widest hover:bg-[#B29071] transition-all disabled:opacity-50">
+            {orderLoading ? <Loader2 className="animate-spin mx-auto"/> : userId ? "Confirmer la commande" : "Connectez-vous pour continuer"}
           </button>
         </div>
       </div>
+      <div className="pt-8 mt-8 border-t border-gray-200 flex flex-wrap items-center gap-x-5 gap-y-2 text-[12px]">
+        <button type="button" className="underline text-gray-400 cursor-not-allowed">Politique de remboursement</button>
+        <button type="button" onClick={() => setActivePolicyModal("shipping")} className="underline">Expédition</button>
+        <button type="button" className="underline text-gray-400 cursor-not-allowed">Conditions d’utilisation</button>
+        <button type="button" className="underline text-gray-400 cursor-not-allowed">Conditions générales de vente</button>
+        <button type="button" className="underline text-gray-400 cursor-not-allowed">Mentions légales</button>
+      </div>
+      {activePolicyModal === "shipping" && (
+        <div className="fixed inset-0 z-[140] bg-black/45 flex items-center justify-center px-4" onClick={() => setActivePolicyModal(null)}>
+          <div className="w-full max-w-2xl bg-white rounded-3xl p-7 md:p-9 shadow-2xl relative max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <button
+              type="button"
+              onClick={() => setActivePolicyModal(null)}
+              className="absolute top-5 right-5 w-9 h-9 rounded-xl border border-black flex items-center justify-center text-xl leading-none"
+            >
+              ×
+            </button>
+            <h3 className="text-3xl font-bold mb-6">{deliverySettings?.panel_title || "Expédition"}</h3>
+            <div className="space-y-5 text-[18px] leading-relaxed">
+              {deliverySettings?.section_1_title && <h4 className="font-bold text-2xl">{deliverySettings.section_1_title}</h4>}
+              {deliverySettings?.section_1_content && <p>{deliverySettings.section_1_content}</p>}
+              {deliverySettings?.section_2_title && <h4 className="font-bold text-2xl">{deliverySettings.section_2_title}</h4>}
+              {deliverySettings?.section_2_content_html && (
+                <div dangerouslySetInnerHTML={{ __html: deliverySettings.section_2_content_html }} />
+              )}
+              {deliverySettings?.notes_html && (
+                <div dangerouslySetInnerHTML={{ __html: deliverySettings.notes_html }} />
+              )}
+              {!deliverySettings && (
+                <p>
+                  Information d’expédition en préparation. Contact: <a href="mailto:contact@skinino.com" className="underline">contact@skinino.com</a>
+                </p>
+              )}
+              <p className="text-base text-gray-500">Skinino · <a href="mailto:contact@skinino.com" className="underline">contact@skinino.com</a></p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

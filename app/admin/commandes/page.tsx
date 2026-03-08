@@ -12,6 +12,7 @@ interface Order {
   $id: string;
   user_id: string;
   items: string;
+  items_json?: string;
   total: number;
   shipping_address: string;
   status: string;
@@ -23,6 +24,15 @@ interface Order {
   coupon_code?: string;
   discount_total?: number;
   subtotal_before_discount?: number;
+  stock_deducted?: boolean;
+  stock_deducted_at?: string | null;
+}
+
+interface OrderItemRow {
+  product_id: string;
+  quantity: number;
+  isGift?: boolean;
+  item_type?: "product" | "packaging";
 }
 
 export default function AdminOrdersPage() {
@@ -83,13 +93,109 @@ export default function AdminOrdersPage() {
     }
   }
 
-  const updateStatus = async (id: string, newStatus: string) => {
+  const parseOrderItems = (order: Order): OrderItemRow[] => {
+    if (!order.items_json) return [];
     try {
-      await databases.updateDocument(DATABASE_ID, 'orders', id, { status: newStatus });
+      const parsed = JSON.parse(order.items_json);
+      if (!Array.isArray(parsed)) return [];
+      const normalized: OrderItemRow[] = parsed.map((row: any): OrderItemRow => ({
+          product_id: String(row?.product_id || ""),
+          quantity: Number(row?.quantity || 0),
+          isGift: Boolean(row?.isGift),
+          item_type: row?.item_type === "packaging" ? "packaging" : "product"
+        }));
+      return normalized.filter((row) => row.product_id.length > 0 && row.quantity > 0);
+    } catch {
+      return [];
+    }
+  };
+
+  const buildStockMap = (items: OrderItemRow[]) => {
+    const stockItems = items.filter((row) =>
+      row.item_type !== "packaging" &&
+      !row.isGift &&
+      row.product_id !== "gift_box" &&
+      row.product_id !== "gift_bag"
+    );
+    const qtyById = new Map<string, number>();
+    stockItems.forEach((row) => {
+      qtyById.set(row.product_id, (qtyById.get(row.product_id) || 0) + row.quantity);
+    });
+    return qtyById;
+  };
+
+  const applyStockChange = async (qtyById: Map<string, number>, mode: "deduct" | "restore") => {
+    const productIds = Array.from(qtyById.keys());
+    if (productIds.length === 0) return;
+    const productsRes = await databases.listDocuments(DATABASE_ID, 'products', [
+      Query.equal("$id", productIds),
+      Query.limit(200)
+    ]);
+    const productMap = new Map<string, any>();
+    productsRes.documents.forEach((p: any) => productMap.set(p.$id, p));
+    for (const productId of productIds) {
+      const qty = qtyById.get(productId) || 0;
+      const product = productMap.get(productId);
+      if (!product) {
+        throw new Error(`Produit introuvable: ${productId}`);
+      }
+      const currentStock = Number(product.stock || 0);
+      if (mode === "deduct" && currentStock < qty) {
+        throw new Error(`Stock insuffisant pour ${product.name || productId}`);
+      }
+    }
+    for (const productId of productIds) {
+      const qty = qtyById.get(productId) || 0;
+      const product = productMap.get(productId);
+      const currentStock = Number(product.stock || 0);
+      const nextStock = mode === "deduct" ? currentStock - qty : currentStock + qty;
+      await databases.updateDocument(DATABASE_ID, 'products', productId, {
+        stock: nextStock
+      });
+    }
+  };
+
+  const updateStatus = async (order: Order, newStatus: string) => {
+    try {
+      const parsedItems = parseOrderItems(order);
+      const hasStructuredItems = parsedItems.length > 0;
+      const shouldDeductStock = newStatus === "expédié" || newStatus === "livré";
+
+      if (shouldDeductStock && !order.stock_deducted && hasStructuredItems) {
+        const qtyById = buildStockMap(parsedItems);
+        await applyStockChange(qtyById, "deduct");
+        await databases.updateDocument(DATABASE_ID, 'orders', order.$id, {
+          status: newStatus,
+          stock_deducted: true,
+          stock_deducted_at: new Date().toISOString()
+        });
+      } else if (newStatus === "en attente" && order.stock_deducted && hasStructuredItems) {
+        const qtyById = buildStockMap(parsedItems);
+        await applyStockChange(qtyById, "restore");
+        await databases.updateDocument(DATABASE_ID, 'orders', order.$id, {
+          status: newStatus,
+          stock_deducted: false,
+          stock_deducted_at: null
+        });
+      } else if ((shouldDeductStock || newStatus === "en attente") && !hasStructuredItems) {
+        if (newStatus === "en attente" && order.stock_deducted) {
+          notify("Commande ancienne sans items_json: restauration de stock impossible.", "error");
+          return;
+        }
+        await databases.updateDocument(DATABASE_ID, 'orders', order.$id, { status: newStatus });
+        if (shouldDeductStock) {
+          notify("Commande ancienne mise à jour sans déduction auto de stock.", "success");
+          fetchOrders();
+          return;
+        }
+      } else {
+        await databases.updateDocument(DATABASE_ID, 'orders', order.$id, { status: newStatus });
+      }
       notify("Statut mis à jour", "success");
       fetchOrders();
     } catch (error) {
-      notify("Erreur de permissions", "error");
+      const errMsg = (error as any)?.message || "Erreur de mise à jour";
+      notify(errMsg, "error");
     }
   };
 
@@ -224,7 +330,7 @@ export default function AdminOrdersPage() {
               <div className="mt-auto pt-4 border-t border-gray-50 flex flex-col sm:flex-row items-center justify-between gap-3">
                 <select 
                   value={order.status}
-                  onChange={(e) => updateStatus(order.$id, e.target.value)}
+                  onChange={(e) => updateStatus(order, e.target.value)}
                   className={`text-[9px] font-bold uppercase p-2 rounded-lg outline-none border transition-all cursor-pointer w-full sm:w-auto ${
                     order.status === "en attente" ? "bg-amber-50 text-amber-600 border-amber-100" :
                     order.status === "expédié" ? "bg-blue-50 text-blue-600 border-blue-100" : "bg-green-50 text-green-600 border-green-100"

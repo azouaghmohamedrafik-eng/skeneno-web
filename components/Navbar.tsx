@@ -13,6 +13,7 @@ import { useWishlist } from "@/lib/WishlistContext";
 import { getStoreSettings } from "@/lib/data"; 
 
 const NAVBAR_CONFIG_PREFIX = "__NAVBAR_CONFIG__:";
+const PACKAGING_CACHE_KEY = "skineno_packaging_cache";
 
 export default function Navbar() {
   const router = useRouter();
@@ -49,11 +50,14 @@ export default function Navbar() {
   const [searchPopularTerms, setSearchPopularTerms] = useState<string[]>([]);
   const [searchProducts, setSearchProducts] = useState<any[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
+  const [suggestedRoutineProducts, setSuggestedRoutineProducts] = useState<any[]>([]);
   const searchPanelRef = useRef<HTMLDivElement | null>(null);
+  const mobileSearchPanelRef = useRef<HTMLDivElement | null>(null);
   const searchProductsScrollRef = useRef<HTMLDivElement | null>(null);
-  const [cartDrawerItems, setCartDrawerItems] = useState<Array<{ id: string; name: string; image_url: string; price: number; quantity: number; cartDocId: string }>>([]);
+  const [cartDrawerItems, setCartDrawerItems] = useState<Array<{ id: string; name: string; image_url: string; price: number; quantity: number; cartDocId: string; isGift?: boolean }>>([]);
   const [cartDrawerLoading, setCartDrawerLoading] = useState(false);
   const [packaging, setPackaging] = useState<any>(null);
+  const [giftRules, setGiftRules] = useState({ active: false, threshold: 0, name: "Cadeau", productId: "" });
   const [isPackagingOpen, setIsPackagingOpen] = useState(false);
   const [giftMessage, setGiftMessage] = useState("");
   const [msgStatus, setMsgStatus] = useState(false);
@@ -65,7 +69,13 @@ export default function Navbar() {
     // Intentar cargar desde caché local para aparición instantánea
     const cached = localStorage.getItem("skineno_promo_cache");
     if (cached) {
-      setPromoMessages(JSON.parse(cached));
+      try {
+        const parsed = JSON.parse(cached);
+        const cleaned = Array.isArray(parsed)
+          ? parsed.map((text: any) => String(text || "").replace(/\s+/g, " ").trim()).filter((text: string) => text.length > 0)
+          : [];
+        setPromoMessages(cleaned);
+      } catch {}
     }
 
     // Cargar desde Appwrite en segundo plano sin bloquear nada
@@ -73,7 +83,9 @@ export default function Navbar() {
       Query.equal('active', true)
     ]).then(res => {
       if (res.documents.length > 0) {
-        const msgs = res.documents.map((p: any) => p.text);
+        const msgs = res.documents
+          .map((p: any) => String(p.text || "").replace(/\s+/g, " ").trim())
+          .filter((text: string) => text.length > 0);
         setPromoMessages(msgs);
         // Guardar en caché para la próxima visita
         localStorage.setItem("skineno_promo_cache", JSON.stringify(msgs));
@@ -176,11 +188,32 @@ export default function Navbar() {
   useEffect(() => {
     const savedMsg = localStorage.getItem("skineno_gift_message");
     if (savedMsg) setGiftMessage(savedMsg);
+    const cachedPackaging = localStorage.getItem(PACKAGING_CACHE_KEY);
+    if (cachedPackaging) {
+      try {
+        const data: any = JSON.parse(cachedPackaging);
+        setPackaging(data);
+        setGiftRules({
+          active: Boolean(data?.gift_active),
+          threshold: Number(data?.gift_threshold || 0),
+          name: String(data?.gift_name || "Cadeau"),
+          productId: String(data?.gift_product_id || "")
+        });
+      } catch {}
+    }
     const loadPackaging = async () => {
       try {
         const pkgRes = await databases.listDocuments(DATABASE_ID, "packaging_settings", [Query.limit(1)]);
         if (pkgRes.documents.length > 0) {
-          setPackaging(pkgRes.documents[0]);
+          const data: any = pkgRes.documents[0];
+          setPackaging(data);
+          localStorage.setItem(PACKAGING_CACHE_KEY, JSON.stringify(data));
+          setGiftRules({
+            active: Boolean(data.gift_active),
+            threshold: Number(data.gift_threshold || 0),
+            name: String(data.gift_name || "Cadeau"),
+            productId: String(data.gift_product_id || "")
+          });
         }
       } catch (error) {
         setPackaging(null);
@@ -224,7 +257,12 @@ export default function Navbar() {
         setCartDrawerItems([]);
         return;
       }
-      const productRows = cart.filter((item) => item.product_id !== "gift_box" && item.product_id !== "gift_bag");
+      const productRows = cart.filter((item) =>
+        item.product_id &&
+        item.product_id.length > 5 &&
+        item.product_id !== "gift_box" &&
+        item.product_id !== "gift_bag"
+      );
       if (productRows.length === 0) {
         setCartDrawerItems([]);
         return;
@@ -237,7 +275,7 @@ export default function Navbar() {
         productRows.forEach((row) => {
           qtyById[row.product_id] = { quantity: row.quantity, cartDocId: row.$id || "" };
         });
-        const mapped = response.documents
+        const mapped: Array<{ id: string; name: string; image_url: string; price: number; quantity: number; cartDocId: string; isGift?: boolean }> = response.documents
           .map((doc: any) => ({
             id: doc.$id,
             name: doc.name,
@@ -247,6 +285,35 @@ export default function Navbar() {
             cartDocId: qtyById[doc.$id]?.cartDocId || "",
           }))
           .sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id));
+        const loadedIds = new Set(mapped.map((item) => item.id));
+        const missingIds = ids.filter((id) => !loadedIds.has(id));
+        for (const missingId of missingIds) {
+          const cartInfo = qtyById[missingId];
+          if (!cartInfo) continue;
+          if (giftRules.productId && missingId === giftRules.productId) {
+            try {
+              const giftDoc: any = await databases.getDocument(DATABASE_ID, "gift_inventory", missingId);
+              mapped.push({
+                id: giftDoc.$id,
+                name: giftDoc.name || "Cadeau",
+                image_url: giftDoc.image_url || "/img/placeholder.jpg",
+                price: 0,
+                quantity: Number(cartInfo.quantity || 1),
+                cartDocId: cartInfo.cartDocId || "",
+                isGift: true
+              });
+              continue;
+            } catch (error) {}
+          }
+          mapped.push({
+            id: missingId,
+            name: "Produit indisponible",
+            image_url: "/img/placeholder.jpg",
+            price: 0,
+            quantity: Number(cartInfo.quantity || 1),
+            cartDocId: cartInfo.cartDocId || ""
+          });
+        }
         setCartDrawerItems(mapped);
       } catch (error) {
         setCartDrawerItems([]);
@@ -255,7 +322,7 @@ export default function Navbar() {
       }
     };
     loadCartDrawerItems();
-  }, [cart]);
+  }, [cart, giftRules.productId]);
 
   useEffect(() => {
     async function fetchSearchData() {
@@ -288,10 +355,28 @@ export default function Navbar() {
   }, []);
 
   useEffect(() => {
+    async function fetchSuggestedRoutineProducts() {
+      try {
+        const response = await databases.listDocuments(DATABASE_ID, "products", [
+          Query.equal("is_suggested", true),
+          Query.orderDesc("$createdAt"),
+          Query.limit(12),
+        ]);
+        setSuggestedRoutineProducts(response.documents);
+      } catch (error) {
+        setSuggestedRoutineProducts([]);
+      }
+    }
+    fetchSuggestedRoutineProducts();
+  }, []);
+
+  useEffect(() => {
     if (!isSearchOpen) return;
-    const handleClickOutside = (event: MouseEvent) => {
-      if (!searchPanelRef.current) return;
-      if (!searchPanelRef.current.contains(event.target as Node)) {
+    const handleClickOutside = (event: MouseEvent | TouchEvent) => {
+      const targetNode = event.target as Node;
+      const insideDesktop = searchPanelRef.current?.contains(targetNode);
+      const insideMobile = mobileSearchPanelRef.current?.contains(targetNode);
+      if (!insideDesktop && !insideMobile) {
         setIsSearchOpen(false);
       }
     };
@@ -299,9 +384,11 @@ export default function Navbar() {
       if (event.key === "Escape") setIsSearchOpen(false);
     };
     document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("touchstart", handleClickOutside);
     document.addEventListener("keydown", handleEsc);
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("touchstart", handleClickOutside);
       document.removeEventListener("keydown", handleEsc);
     };
   }, [isSearchOpen]);
@@ -332,6 +419,18 @@ export default function Navbar() {
   };
   const boxInCart = cart.find((item) => item.product_id === "gift_box");
   const bagInCart = cart.find((item) => item.product_id === "gift_bag");
+  const routineProducts = suggestedRoutineProducts;
+  const hasDrawerLineItems = cartDrawerItems.length > 0 || Boolean(boxInCart) || Boolean(bagInCart);
+  const productsTotalDrawer = cartDrawerItems.reduce((sum, item) => {
+    if (giftRules.productId && item.id === giftRules.productId) return sum;
+    return sum + (item.price * item.quantity);
+  }, 0);
+  const packagingTotalDrawer = (boxInCart ? (Number(packaging?.box_price || 0) * boxInCart.quantity) : 0) + (bagInCart ? (Number(packaging?.bag_price || 0) * bagInCart.quantity) : 0);
+  const subTotalDrawer = productsTotalDrawer + packagingTotalDrawer;
+  const shippingFeeDrawer = subTotalDrawer > 0 && subTotalDrawer < 500 ? 35 : 0;
+  const totalWithShippingDrawer = subTotalDrawer + shippingFeeDrawer;
+  const remainingForGiftDrawer = Math.max(0, giftRules.threshold - productsTotalDrawer);
+  const progressPercentDrawer = giftRules.threshold > 0 ? Math.min(100, (productsTotalDrawer / giftRules.threshold) * 100) : 0;
   const updatePackagingQty = async (productId: "gift_box" | "gift_bag", delta: number) => {
     const item = cart.find((row) => row.product_id === productId);
     if (!item?.$id) {
@@ -710,37 +809,112 @@ export default function Navbar() {
 
       <div className={`fixed inset-0 z-[113] transition-all duration-300 ${isCartDrawerOpen ? "opacity-100 visible" : "opacity-0 invisible pointer-events-none"}`}>
         <div className="absolute inset-0 bg-black/45" onClick={closeCartDrawer} />
-        <div className={`absolute right-0 top-0 h-full w-full max-w-[460px] bg-white shadow-2xl transition-transform duration-300 hidden lg:flex flex-col ${isCartDrawerOpen ? "translate-x-0" : "translate-x-full"}`}>
-          <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between">
-            <h3 className="text-sm font-bold uppercase tracking-[0.2em]">Votre Panier</h3>
+        <div className={`absolute right-0 top-0 h-full w-full ${routineProducts.length > 0 ? "max-w-[920px]" : "max-w-[460px]"} shadow-2xl transition-transform duration-300 hidden lg:flex ${isCartDrawerOpen ? "translate-x-0" : "translate-x-full"}`}>
+          {routineProducts.length > 0 && (
+            <aside className="w-[300px] border-r border-[#e2d3bf] bg-[#fcf7f1] flex flex-col">
+              <div className="px-6 py-6">
+                <p className="text-[14px] leading-tight font-bold uppercase tracking-[0.16em] text-center">Complétez votre routine</p>
+              </div>
+              <div className="flex-1 overflow-y-auto px-6 py-5 space-y-8">
+                {routineProducts.map((prod: any) => (
+                  <div key={prod.$id} className="text-center">
+                    <Link href={`/produit/${prod.$id}`} onClick={closeCartDrawer} className="block">
+                      <img src={getImageUrl(prod.image || prod.image_url)} alt={prod.name} className="w-full h-20 object-contain rounded-lg" />
+                      <p className="text-[11px] font-bold uppercase mt-3 leading-tight line-clamp-2">{prod.name}</p>
+                      <p className="text-[11px] mt-1">{Number(prod.price || 0).toFixed(2)} dh</p>
+                    </Link>
+                    <button type="button" onClick={() => addToCart(prod.$id, 1)} className="mt-2 text-[11px] font-bold uppercase underline">
+                      Ajouter
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </aside>
+          )}
+          <div className="flex-1 bg-white flex flex-col">
+          <div className="px-6 py-4 border-b border-[#e2d3bf] flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <h3 className="text-[12px] font-bold uppercase tracking-[0.15em] text-[#B29071]">Votre Panier</h3>
+              {cartCount > 0 && <span className="text-[12px] font-bold uppercase">{cartCount} Produits</span>}
+            </div>
             <button type="button" onClick={closeCartDrawer} className="w-9 h-9 rounded-full bg-[#C7B186] text-white flex items-center justify-center">
               <X className="w-4 h-4" />
             </button>
           </div>
-          <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+          <div className="flex-1 overflow-y-auto px-6 py-4 space-y-5">
+            {giftRules.active && giftRules.threshold > 0 && (
+              <div className="bg-white border border-[#e2d3bf] rounded-2xl p-4 space-y-2">
+                <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#8f7558]">Complétez pour l’offre</p>
+                <p className="text-[12px] text-center">
+                  {remainingForGiftDrawer > 0
+                    ? <>Complétez pour l'offre <strong>{giftRules.name}</strong> offert ✨ <strong>{remainingForGiftDrawer.toFixed(2)} MAD</strong> restant</>
+                    : <>Félicitations ! Votre <strong>{giftRules.name}</strong> est offert ! 🎁</>
+                  }
+                </p>
+                <div className="w-full h-1.5 bg-[#efe5d8] rounded-full overflow-hidden">
+                  <div className="h-full bg-[#B29071] transition-all duration-700" style={{ width: `${progressPercentDrawer}%` }} />
+                </div>
+              </div>
+            )}
             {cartDrawerLoading && <p className="text-sm text-gray-400">Chargement...</p>}
-            {!cartDrawerLoading && cartDrawerItems.length === 0 && <p className="text-sm text-gray-500">Votre panier est vide.</p>}
+            {!cartDrawerLoading && !hasDrawerLineItems && (
+              <div className="py-8 text-center space-y-5">
+                <h4 className="text-3xl font-serif uppercase tracking-tight">Votre panier est vide</h4>
+                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#98a0bd]">Commencez votre shopping et explorez nos soins.</p>
+                <div className="grid grid-cols-2 gap-3">
+                  {menuVisageActive && <Link href="/boutique/Visage" onClick={closeCartDrawer} className="border border-black rounded-full py-3 text-[9px] font-bold uppercase tracking-[0.12em]">Soins Visage</Link>}
+                  {menuCheveuxActive && <Link href="/boutique/Cheveux" onClick={closeCartDrawer} className="border border-black rounded-full py-3 text-[9px] font-bold uppercase tracking-[0.12em]">Soins Cheveux</Link>}
+                  {menuCorpsActive && <Link href="/boutique/Corps" onClick={closeCartDrawer} className="border border-black rounded-full py-3 text-[9px] font-bold uppercase tracking-[0.12em]">Soins du Corps</Link>}
+                </div>
+              </div>
+            )}
             {!cartDrawerLoading && cartDrawerItems.map((item) => (
-              <div key={item.id} className="flex gap-4 border-b border-gray-100 pb-4">
-                <img src={item.image_url} alt={item.name} className="w-20 h-20 rounded-xl object-cover bg-[#fafafa]" />
+              <div key={item.id} className="flex gap-4 border-b border-[#e2d3bf] pb-4">
+                <img src={item.image_url} alt={item.name} className="w-[86px] h-[86px] rounded-xl object-cover bg-[#fafafa]" />
                 <div className="flex-1 min-w-0">
-                  <p className="text-[12px] font-bold uppercase truncate">{item.name}</p>
-                  <p className="text-[12px] mt-1">{item.price.toFixed(2)} MAD</p>
+                  <p className="text-[20px] font-serif uppercase leading-tight line-clamp-2">{item.name}</p>
+                  <p className="text-[11px] mt-1 font-bold">{item.price.toFixed(2)} MAD</p>
                   <div className="mt-3 flex items-center justify-between">
-                    <div className="flex items-center border border-gray-200 rounded-full px-2 py-1 gap-3">
+                    <div className="flex items-center border border-[#d9c8b1] rounded-full px-2 py-1 gap-3 bg-white">
                       <button type="button" onClick={() => item.quantity <= 1 ? removeFromCart(item.cartDocId) : addToCart(item.id, -1)} className="text-xs font-bold">-</button>
                       <span className="text-xs font-bold min-w-[16px] text-center">{item.quantity}</span>
                       <button type="button" onClick={() => addToCart(item.id, 1)} className="text-xs font-bold">+</button>
                     </div>
-                    <button type="button" onClick={() => removeFromCart(item.cartDocId)} className="text-[10px] uppercase underline">Supprimer</button>
+                    <button type="button" onClick={() => removeFromCart(item.cartDocId)} className="text-[11px] underline">Supprimer</button>
                   </div>
                 </div>
               </div>
             ))}
-            {packaging && (packaging.box_active || packaging.bag_active) && (
-              <div className="pt-3 border-t border-gray-100 space-y-4">
+            {!cartDrawerLoading && boxInCart && packaging && (
+              <div className="flex gap-4 border-b border-[#e2d3bf] pb-4">
+                <img src={packaging.box_image} alt="Coffret Cadeau" className="w-[86px] h-[86px] rounded-xl object-contain" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-[11px] font-bold uppercase tracking-wide">Coffret Cadeau ({boxSize})</p>
+                  <p className="text-[11px] mt-1">{(Number(packaging.box_price || 0) * boxInCart.quantity).toFixed(2)} MAD</p>
+                  <div className="mt-3 flex items-center justify-between">
+                    <span className="text-[10px] uppercase tracking-wide font-bold">Qté {boxInCart.quantity}</span>
+                    <button type="button" onClick={() => removeFromCart(boxInCart.$id!)} className="text-[11px] underline">Supprimer</button>
+                  </div>
+                </div>
+              </div>
+            )}
+            {!cartDrawerLoading && bagInCart && packaging && (
+              <div className="flex gap-4 border-b border-[#e2d3bf] pb-4">
+                <img src={packaging.bag_image} alt="Sac Cadeau" className="w-[86px] h-[86px] rounded-xl object-contain" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-[11px] font-bold uppercase tracking-wide">Sac Cadeau ({bagSize})</p>
+                  <p className="text-[11px] mt-1">{(Number(packaging.bag_price || 0) * bagInCart.quantity).toFixed(2)} MAD</p>
+                  <div className="mt-3 flex items-center justify-between">
+                    <span className="text-[10px] uppercase tracking-wide font-bold">Qté {bagInCart.quantity}</span>
+                    <button type="button" onClick={() => removeFromCart(bagInCart.$id!)} className="text-[11px] underline">Supprimer</button>
+                  </div>
+                </div>
+              </div>
+            )}
+            {hasDrawerLineItems && packaging && (packaging.box_active || packaging.bag_active) && (
+              <div className="pt-3 border-t border-[#e2d3bf] space-y-4">
                 <button type="button" onClick={() => setIsPackagingOpen((prev) => !prev)} className="text-[10px] font-bold uppercase tracking-[0.2em]">
-                  Ajouter un coffret cadeau {isPackagingOpen ? "-" : "+"}
+                  Ajouter un coffret cadeau +
                 </button>
                 {isPackagingOpen && (
                   <div className="space-y-4">
@@ -752,11 +926,9 @@ export default function Navbar() {
                             <p className="text-[10px] font-bold uppercase">Coffret Cadeau</p>
                             <p className="text-[10px] text-gray-500">{Number(packaging.box_price || 0).toFixed(2)} MAD</p>
                           </div>
-                          <div className="flex items-center border border-gray-200 rounded-full px-2 py-1 gap-2">
-                            <button type="button" onClick={() => updatePackagingQty("gift_box", -1)} className="text-xs font-bold">-</button>
-                            <span className="text-xs font-bold">{boxInCart?.quantity || 0}</span>
-                            <button type="button" onClick={() => updatePackagingQty("gift_box", 1)} className="text-xs font-bold">+</button>
-                          </div>
+                          <button type="button" onClick={() => updatePackagingQty("gift_box", 1)} className="text-[10px] font-bold uppercase px-3 py-1.5 rounded-full border border-[#d9c8b1] bg-white">
+                            {(boxInCart?.quantity || 0) > 0 ? `Ajouté (${boxInCart?.quantity || 0})` : "Ajouter"}
+                          </button>
                         </div>
                         <select value={boxSize} onChange={(e) => setBoxSize(e.target.value)} className="w-full border border-gray-200 rounded-full px-3 py-1 text-[10px] bg-white outline-none">
                           <option value="Petit">Petit</option>
@@ -773,11 +945,9 @@ export default function Navbar() {
                             <p className="text-[10px] font-bold uppercase">Sac Cadeau</p>
                             <p className="text-[10px] text-gray-500">{Number(packaging.bag_price || 0).toFixed(2)} MAD</p>
                           </div>
-                          <div className="flex items-center border border-gray-200 rounded-full px-2 py-1 gap-2">
-                            <button type="button" onClick={() => updatePackagingQty("gift_bag", -1)} className="text-xs font-bold">-</button>
-                            <span className="text-xs font-bold">{bagInCart?.quantity || 0}</span>
-                            <button type="button" onClick={() => updatePackagingQty("gift_bag", 1)} className="text-xs font-bold">+</button>
-                          </div>
+                          <button type="button" onClick={() => updatePackagingQty("gift_bag", 1)} className="text-[10px] font-bold uppercase px-3 py-1.5 rounded-full border border-[#d9c8b1] bg-white">
+                            {(bagInCart?.quantity || 0) > 0 ? `Ajouté (${bagInCart?.quantity || 0})` : "Ajouter"}
+                          </button>
                         </div>
                         <select value={bagSize} onChange={(e) => setBagSize(e.target.value)} className="w-full border border-gray-200 rounded-full px-3 py-1 text-[10px] bg-white outline-none">
                           <option value="Petit">Petit</option>
@@ -805,31 +975,60 @@ export default function Navbar() {
               </div>
             )}
           </div>
-          <div className="border-t border-gray-100 px-6 py-5 space-y-4">
+          <div className="border-t border-[#e2d3bf] px-6 py-5 space-y-4 bg-white">
             <div className="flex items-center justify-between">
               <span className="text-[10px] uppercase tracking-[0.2em] font-bold">Total</span>
-              <span className="text-base font-bold">{(cartDrawerItems.reduce((sum, item) => sum + (item.price * item.quantity), 0) + ((boxInCart ? (Number(packaging?.box_price || 0) * boxInCart.quantity) : 0) + (bagInCart ? (Number(packaging?.bag_price || 0) * bagInCart.quantity) : 0))).toFixed(2)} MAD</span>
+              <span className="text-base font-bold">{totalWithShippingDrawer.toFixed(2)} MAD</span>
             </div>
-            <button type="button" onClick={() => { closeCartDrawer(); router.push("/panier"); }} className="w-full border border-black text-black rounded-full py-3 text-[10px] font-bold uppercase tracking-widest">
+            <p className="text-[10px] text-gray-500">Frais de livraison calculés au moment de la commande: {shippingFeeDrawer === 0 ? "Gratuits" : `${shippingFeeDrawer.toFixed(2)} MAD`}</p>
+            <button type="button" onClick={() => { closeCartDrawer(); router.push("/panier"); }} className="w-full border border-black text-black rounded-full py-3 text-[11px] font-bold uppercase tracking-[0.12em]">
               Voir le panier
             </button>
-            <button type="button" onClick={() => { closeCartDrawer(); router.push("/checkout"); }} className="w-full bg-black text-white rounded-full py-3 text-[10px] font-bold uppercase tracking-widest">
+            <button type="button" onClick={() => { closeCartDrawer(); router.push("/checkout"); }} className="w-full bg-[#2f2d2b] text-white rounded-full py-3 text-[11px] font-bold uppercase tracking-[0.12em]">
               Finaliser ma commande
             </button>
           </div>
+          </div>
         </div>
         <div className={`absolute bottom-0 left-0 right-0 bg-white rounded-t-3xl shadow-2xl max-h-[86vh] flex flex-col lg:hidden transition-transform duration-300 ${isCartDrawerOpen ? "translate-y-0" : "translate-y-full"}`}>
-          <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-            <h3 className="text-xs font-bold uppercase tracking-[0.2em]">Votre Panier {cartCount > 0 ? `${cartCount} Produit` : ""}</h3>
+          <div className="px-5 py-4 border-b border-[#e2d3bf] flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <h3 className="text-[11px] font-bold uppercase tracking-[0.14em]">Votre Panier</h3>
+              {cartCount > 0 && <span className="text-[11px] font-bold uppercase">{cartCount} Produit</span>}
+            </div>
             <button type="button" onClick={closeCartDrawer} className="w-9 h-9 rounded-full bg-[#C7B186] text-white flex items-center justify-center">
               <X className="w-4 h-4" />
             </button>
           </div>
           <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+            {giftRules.active && giftRules.threshold > 0 && (
+              <div className="bg-white border border-[#e2d3bf] rounded-2xl p-3 space-y-2">
+                <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-[#8f7558]">Complétez pour l’offre</p>
+                <p className="text-[10px] text-center">
+                  {remainingForGiftDrawer > 0
+                    ? <>Complétez pour l'offre <strong>{giftRules.name}</strong> offert ✨ <strong>{remainingForGiftDrawer.toFixed(2)} MAD</strong> restant</>
+                    : <>Félicitations ! Votre <strong>{giftRules.name}</strong> est offert ! 🎁</>
+                  }
+                </p>
+                <div className="w-full h-1.5 bg-[#efe5d8] rounded-full overflow-hidden">
+                  <div className="h-full bg-[#B29071] transition-all duration-700" style={{ width: `${progressPercentDrawer}%` }} />
+                </div>
+              </div>
+            )}
             {cartDrawerLoading && <p className="text-sm text-gray-400">Chargement...</p>}
-            {!cartDrawerLoading && cartDrawerItems.length === 0 && <p className="text-sm text-gray-500">Votre panier est vide.</p>}
+            {!cartDrawerLoading && !hasDrawerLineItems && (
+              <div className="py-6 text-center space-y-4">
+                <h4 className="text-2xl font-serif uppercase tracking-tight">Votre panier est vide</h4>
+                <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-[#98a0bd]">Commencez votre shopping et explorez nos soins.</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {menuVisageActive && <Link href="/boutique/Visage" onClick={closeCartDrawer} className="border border-black rounded-full py-2 text-[8px] font-bold uppercase tracking-[0.12em]">Soins Visage</Link>}
+                  {menuCheveuxActive && <Link href="/boutique/Cheveux" onClick={closeCartDrawer} className="border border-black rounded-full py-2 text-[8px] font-bold uppercase tracking-[0.12em]">Soins Cheveux</Link>}
+                  {menuCorpsActive && <Link href="/boutique/Corps" onClick={closeCartDrawer} className="border border-black rounded-full py-2 text-[8px] font-bold uppercase tracking-[0.12em]">Soins du Corps</Link>}
+                </div>
+              </div>
+            )}
             {!cartDrawerLoading && cartDrawerItems.map((item) => (
-              <div key={item.id} className="flex gap-3 border-b border-gray-100 pb-4">
+              <div key={item.id} className="flex gap-3 border-b border-[#e2d3bf] pb-4">
                 <img src={item.image_url} alt={item.name} className="w-16 h-16 rounded-xl object-cover bg-[#fafafa]" />
                 <div className="flex-1 min-w-0">
                   <p className="text-[11px] font-bold uppercase truncate">{item.name}</p>
@@ -845,10 +1044,36 @@ export default function Navbar() {
                 </div>
               </div>
             ))}
-            {packaging && (packaging.box_active || packaging.bag_active) && (
-              <div className="pt-3 border-t border-gray-100 space-y-4">
+            {!cartDrawerLoading && boxInCart && packaging && (
+              <div className="flex gap-3 border-b border-[#e2d3bf] pb-4">
+                <img src={packaging.box_image} alt="Coffret Cadeau" className="w-16 h-16 rounded-xl object-contain" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-[10px] font-bold uppercase">Coffret Cadeau ({boxSize})</p>
+                  <p className="text-[10px] mt-1">{(Number(packaging.box_price || 0) * boxInCart.quantity).toFixed(2)} MAD</p>
+                  <div className="mt-2 flex items-center justify-between">
+                    <span className="text-[9px] uppercase font-bold">Qté {boxInCart.quantity}</span>
+                    <button type="button" onClick={() => removeFromCart(boxInCart.$id!)} className="text-[9px] underline">Supprimer</button>
+                  </div>
+                </div>
+              </div>
+            )}
+            {!cartDrawerLoading && bagInCart && packaging && (
+              <div className="flex gap-3 border-b border-[#e2d3bf] pb-4">
+                <img src={packaging.bag_image} alt="Sac Cadeau" className="w-16 h-16 rounded-xl object-contain" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-[10px] font-bold uppercase">Sac Cadeau ({bagSize})</p>
+                  <p className="text-[10px] mt-1">{(Number(packaging.bag_price || 0) * bagInCart.quantity).toFixed(2)} MAD</p>
+                  <div className="mt-2 flex items-center justify-between">
+                    <span className="text-[9px] uppercase font-bold">Qté {bagInCart.quantity}</span>
+                    <button type="button" onClick={() => removeFromCart(bagInCart.$id!)} className="text-[9px] underline">Supprimer</button>
+                  </div>
+                </div>
+              </div>
+            )}
+            {hasDrawerLineItems && packaging && (packaging.box_active || packaging.bag_active) && (
+              <div className="pt-3 border-t border-[#e2d3bf] space-y-4">
                 <button type="button" onClick={() => setIsPackagingOpen((prev) => !prev)} className="text-[10px] font-bold uppercase tracking-[0.2em]">
-                  Ajouter un coffret cadeau {isPackagingOpen ? "-" : "+"}
+                  Ajouter un coffret cadeau +
                 </button>
                 {isPackagingOpen && (
                   <div className="space-y-4">
@@ -860,11 +1085,9 @@ export default function Navbar() {
                             <p className="text-[10px] font-bold uppercase">Coffret Cadeau</p>
                             <p className="text-[10px] text-gray-500">{Number(packaging.box_price || 0).toFixed(2)} MAD</p>
                           </div>
-                          <div className="flex items-center border border-gray-200 rounded-full px-2 py-1 gap-2">
-                            <button type="button" onClick={() => updatePackagingQty("gift_box", -1)} className="text-xs font-bold">-</button>
-                            <span className="text-xs font-bold">{boxInCart?.quantity || 0}</span>
-                            <button type="button" onClick={() => updatePackagingQty("gift_box", 1)} className="text-xs font-bold">+</button>
-                          </div>
+                          <button type="button" onClick={() => updatePackagingQty("gift_box", 1)} className="text-[10px] font-bold uppercase px-3 py-1.5 rounded-full border border-[#d9c8b1] bg-white">
+                            {(boxInCart?.quantity || 0) > 0 ? `Ajouté (${boxInCart?.quantity || 0})` : "Ajouter"}
+                          </button>
                         </div>
                       </div>
                     )}
@@ -876,11 +1099,9 @@ export default function Navbar() {
                             <p className="text-[10px] font-bold uppercase">Sac Cadeau</p>
                             <p className="text-[10px] text-gray-500">{Number(packaging.bag_price || 0).toFixed(2)} MAD</p>
                           </div>
-                          <div className="flex items-center border border-gray-200 rounded-full px-2 py-1 gap-2">
-                            <button type="button" onClick={() => updatePackagingQty("gift_bag", -1)} className="text-xs font-bold">-</button>
-                            <span className="text-xs font-bold">{bagInCart?.quantity || 0}</span>
-                            <button type="button" onClick={() => updatePackagingQty("gift_bag", 1)} className="text-xs font-bold">+</button>
-                          </div>
+                          <button type="button" onClick={() => updatePackagingQty("gift_bag", 1)} className="text-[10px] font-bold uppercase px-3 py-1.5 rounded-full border border-[#d9c8b1] bg-white">
+                            {(bagInCart?.quantity || 0) > 0 ? `Ajouté (${bagInCart?.quantity || 0})` : "Ajouter"}
+                          </button>
                         </div>
                       </div>
                     )}
@@ -903,11 +1124,12 @@ export default function Navbar() {
               </div>
             )}
           </div>
-          <div className="border-t border-gray-100 px-5 py-4 space-y-3">
+          <div className="border-t border-[#e2d3bf] px-5 py-4 space-y-3 bg-white">
             <div className="flex items-center justify-between">
               <span className="text-[10px] uppercase tracking-[0.2em] font-bold">Total</span>
-              <span className="text-base font-bold">{(cartDrawerItems.reduce((sum, item) => sum + (item.price * item.quantity), 0) + ((boxInCart ? (Number(packaging?.box_price || 0) * boxInCart.quantity) : 0) + (bagInCart ? (Number(packaging?.bag_price || 0) * bagInCart.quantity) : 0))).toFixed(2)} MAD</span>
+              <span className="text-base font-bold">{totalWithShippingDrawer.toFixed(2)} MAD</span>
             </div>
+            <p className="text-[9px] text-gray-500">Frais de livraison: {shippingFeeDrawer === 0 ? "Gratuits" : `${shippingFeeDrawer.toFixed(2)} MAD`}</p>
             <button type="button" onClick={() => { closeCartDrawer(); router.push("/panier"); }} className="w-full border border-black text-black rounded-full py-3 text-[10px] font-bold uppercase tracking-widest">
               Voir le panier
             </button>
@@ -920,7 +1142,7 @@ export default function Navbar() {
 
       <div className={`fixed inset-0 z-[112] lg:hidden transition-all duration-300 ${isSearchOpen ? "opacity-100 visible" : "opacity-0 invisible pointer-events-none"}`}>
         <div className="absolute inset-0 bg-black/40" onClick={() => setIsSearchOpen(false)} />
-        <div className={`absolute top-0 left-0 right-0 bg-white rounded-b-3xl shadow-2xl max-h-[86vh] overflow-hidden transition-transform duration-300 ${isSearchOpen ? "translate-y-0" : "-translate-y-6"}`}>
+        <div ref={mobileSearchPanelRef} className={`absolute top-0 left-0 right-0 bg-white rounded-b-3xl shadow-2xl max-h-[86vh] overflow-hidden transition-transform duration-300 ${isSearchOpen ? "translate-y-0" : "-translate-y-6"}`}>
           <div className="px-5 pt-5 pb-4 border-b border-gray-100 flex items-center gap-3">
             <Search className="w-4 h-4 text-gray-500" />
             <input

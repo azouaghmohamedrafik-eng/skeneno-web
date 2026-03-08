@@ -9,6 +9,7 @@ import Link from "next/link";
 
 interface Product { id: string; name: string; price: number; image_url: string; mini_title?: string; miniTitle?: string; description_short?: string; }
 interface Slide { $id: string; title: string; subtitle: string; description: string; image1_url: string; image2_url: string; product_id: string | null; }
+const HERO_VIDEO_PREFIX = "__HERO_VIDEO__:";
 
 export default function Home() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -18,6 +19,9 @@ export default function Home() {
   const mobileProductsRef = useRef<HTMLDivElement | null>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
+  const [introVideoUrl, setIntroVideoUrl] = useState("");
+  const [isIntroVideoActive, setIsIntroVideoActive] = useState(false);
+  const [isIntroVideoOpen, setIsIntroVideoOpen] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -25,9 +29,10 @@ export default function Home() {
     async function fetchData() {
       try {
         // En Appwrite usamos listDocuments con Queries
-        const [slidesRes, productsRes] = await Promise.all([
+        const [slidesRes, productsRes, topbarRes] = await Promise.all([
           databases.listDocuments(DATABASE_ID, 'hero_slides', [Query.orderAsc('$createdAt')]),
-          databases.listDocuments(DATABASE_ID, 'products', [Query.orderDesc('$createdAt'), Query.limit(3)])
+          databases.listDocuments(DATABASE_ID, 'products', [Query.orderDesc('$createdAt'), Query.limit(3)]),
+          databases.listDocuments(DATABASE_ID, 'top_bar_messages', [Query.limit(200)])
         ]);
 
         if (isMounted) {
@@ -43,6 +48,21 @@ export default function Home() {
             description_short: doc.description_short || "",
           }));
           setProducts(formattedProducts);
+          const videoConfigDoc: any = topbarRes.documents.find((doc: any) =>
+            String(doc.text || "").startsWith(HERO_VIDEO_PREFIX)
+          );
+          if (videoConfigDoc?.text) {
+            const parsed = JSON.parse(String(videoConfigDoc.text).replace(HERO_VIDEO_PREFIX, ""));
+            const url = String(parsed?.url || "");
+            const active = Boolean(parsed?.active);
+            setIntroVideoUrl(url);
+            setIsIntroVideoActive(active);
+            setIsIntroVideoOpen(Boolean(url && active));
+          } else {
+            setIntroVideoUrl("");
+            setIsIntroVideoActive(false);
+            setIsIntroVideoOpen(false);
+          }
         }
       } catch (error) {
         console.error("Error cargando datos:", error);
@@ -95,6 +115,17 @@ export default function Home() {
     return () => clearInterval(interval);
   }, [slides]);
 
+  useEffect(() => {
+    if (isIntroVideoOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "unset";
+    }
+    return () => {
+      document.body.style.overflow = "unset";
+    };
+  }, [isIntroVideoOpen]);
+
   if (loading) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-white text-gray-400">
@@ -106,6 +137,29 @@ export default function Home() {
 
   return (
     <div className="animate-fade-in pb-20">
+      {isIntroVideoOpen && isIntroVideoActive && introVideoUrl && (
+        <div className="fixed inset-0 z-[140] bg-black/75 flex items-center justify-center px-4">
+          <div className="w-full max-w-[980px] rounded-2xl bg-black relative overflow-hidden shadow-2xl">
+            <button
+              type="button"
+              onClick={() => setIsIntroVideoOpen(false)}
+              className="absolute top-3 right-3 z-10 w-9 h-9 rounded-full bg-white text-black flex items-center justify-center text-xl leading-none"
+            >
+              ×
+            </button>
+            <div className="w-full max-h-[78vh] flex items-center justify-center">
+              <video
+                src={introVideoUrl}
+                className="w-full h-full max-h-[78vh] object-contain bg-black"
+                autoPlay
+                muted
+                playsInline
+                controls
+              />
+            </div>
+          </div>
+        </div>
+      )}
       {/* SECCIÓN HERO - 3 COLUMNAS */}
       <section className="flex flex-col lg:flex-row w-full h-auto lg:h-[650px] overflow-hidden bg-[#FDFBF7]">
         

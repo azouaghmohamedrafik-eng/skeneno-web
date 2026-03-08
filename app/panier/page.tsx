@@ -7,6 +7,8 @@ import { Query } from "appwrite";
 import { Trash2, ShoppingBag, ArrowRight, Loader2, Minus, Plus, ChevronLeft, ChevronRight, Check, Gift, Package, Sparkles, X } from "lucide-react";
 import Link from "next/link";
 
+const NAVBAR_CONFIG_PREFIX = "__NAVBAR_CONFIG__:";
+
 interface FullProduct {
   $id: string;
   name: string;
@@ -35,15 +37,33 @@ export default function PanierPage() {
   const [boxSize, setBoxSize] = useState("Moyen");
   const [bagSize, setBagSize] = useState("Petit");
   const [msgStatus, setMsgStatus] = useState(false); 
+  const [menuVisageActive, setMenuVisageActive] = useState(true);
+  const [menuCorpsActive, setMenuCorpsActive] = useState(true);
+  const [menuCheveuxActive, setMenuCheveuxActive] = useState(true);
 
   useEffect(() => {
     async function loadAllData() {
       try {
-        const pkgRes = await databases.listDocuments(DATABASE_ID, "packaging_settings", [Query.limit(1)]);
+        const PACKAGING_CACHE_KEY = "skineno_packaging_cache";
+        const cachedPackaging = localStorage.getItem(PACKAGING_CACHE_KEY);
+        if (cachedPackaging) {
+          try {
+            const cachedData: any = JSON.parse(cachedPackaging);
+            setPackaging(cachedData);
+            setGiftRules({
+              active: cachedData.gift_active || false,
+              threshold: cachedData.gift_threshold || 0,
+              name: cachedData.gift_name || "Cadeau",
+              productId: cachedData.gift_product_id || ""
+            });
+          } catch {}
+        }
+        const pkgRes = await databases.listDocuments(DATABASE_ID, "packaging_settings", [Query.limit(1)]).catch(() => null);
         let currentGiftId = "";
-        if (pkgRes.documents.length > 0) {
+        if (pkgRes && pkgRes.documents.length > 0) {
           const data: any = pkgRes.documents[0];
           setPackaging(data);
+          localStorage.setItem(PACKAGING_CACHE_KEY, JSON.stringify(data));
           currentGiftId = data.gift_product_id || "";
           setGiftRules({ 
             active: data.gift_active || false, 
@@ -86,6 +106,19 @@ export default function PanierPage() {
         const sampleRes = await databases.listDocuments(DATABASE_ID, "products", [Query.equal("is_sample", true), Query.limit(8)]);
         setSamples(sampleRes.documents);
 
+        try {
+          const cfgRes = await databases.listDocuments(DATABASE_ID, 'top_bar_messages');
+          const cfgDoc: any = cfgRes.documents.find((doc: any) =>
+            String(doc.text || "").startsWith(NAVBAR_CONFIG_PREFIX)
+          );
+          if (cfgDoc?.text) {
+            const parsed = JSON.parse(String(cfgDoc.text).replace(NAVBAR_CONFIG_PREFIX, ""));
+            setMenuVisageActive(typeof parsed?.menu_visage_active === "boolean" ? parsed.menu_visage_active : true);
+            setMenuCorpsActive(typeof parsed?.menu_corps_active === "boolean" ? parsed.menu_corps_active : true);
+            setMenuCheveuxActive(typeof parsed?.menu_cheveux_active === "boolean" ? parsed.menu_cheveux_active : true);
+          }
+        } catch (error) {}
+
         // RECUPERAR MENSAJE GUARDADO
         const savedMsg = localStorage.getItem("skineno_gift_message");
         if (savedMsg) setGiftMessage(savedMsg);
@@ -94,21 +127,6 @@ export default function PanierPage() {
     }
     loadAllData();
   }, [cart]);
-
-  // --- LÓGICA DE AUTO-LIMPIEZA (SI NO HAY PRODUCTOS REALES, QUITAR TODO) ---
-  useEffect(() => {
-    if (!loading && products.length === 0 && cart.length > 0) {
-      const onlyPackagingOrGift = cart.every(item => 
-        item.product_id === "gift_box" || 
-        item.product_id === "gift_bag" || 
-        item.product_id === giftRules.productId
-      );
-      if (onlyPackagingOrGift) {
-        cart.forEach(item => removeFromCart(item.$id!));
-        localStorage.removeItem("skineno_gift_message");
-      }
-    }
-  }, [products.length, loading]);
 
   const handleQtyChange = async (productId: string, delta: number) => {
     const product = products.find(p => p.$id === productId);
@@ -139,6 +157,8 @@ export default function PanierPage() {
   const bagInCart = cart.find(item => item.product_id === "gift_bag");
   const packagingTotal = (boxInCart ? (packaging?.box_price * boxInCart.quantity || 0) : 0) + (bagInCart ? (packaging?.bag_price * bagInCart.quantity || 0) : 0);
   const totalFinal = productsTotal + packagingTotal;
+  const shippingFee = totalFinal > 0 && totalFinal < 500 ? 35 : 0;
+  const totalWithShipping = totalFinal + shippingFee;
 
   const remainingForGift = Math.max(0, giftRules.threshold - productsTotal);
   const progressPercent = giftRules.threshold > 0 ? Math.min(100, (productsTotal / giftRules.threshold) * 100) : 0;
@@ -151,10 +171,9 @@ export default function PanierPage() {
       <h2 className="text-5xl font-serif mb-4 tracking-tighter uppercase">Votre panier est vide</h2>
       <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-gray-400 mb-12">Commencez votre shopping et explorez nos soins.</p>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full max-w-xl">
-        <Link href="/boutique/Visage" className="border border-black rounded-full py-5 text-[10px] font-bold uppercase tracking-widest hover:bg-black hover:text-white transition-all">Soins Visage</Link>
-        <Link href="/boutique/Cheveux" className="border border-black rounded-full py-5 text-[10px] font-bold uppercase tracking-widest hover:bg-black hover:text-white transition-all">Soins Cheveux</Link>
-        <Link href="/boutique/Corps" className="border border-black rounded-full py-5 text-[10px] font-bold uppercase tracking-widest hover:bg-black hover:text-white transition-all">Soins du Corps</Link>
-        <Link href="/boutique/Cactea" className="border border-black rounded-full py-5 text-[10px] font-bold uppercase tracking-widest hover:bg-black hover:text-white transition-all">Cactéa</Link>
+        {menuVisageActive && <Link href="/boutique/Visage" className="border border-black rounded-full py-5 text-[10px] font-bold uppercase tracking-widest hover:bg-black hover:text-white transition-all">Soins Visage</Link>}
+        {menuCheveuxActive && <Link href="/boutique/Cheveux" className="border border-black rounded-full py-5 text-[10px] font-bold uppercase tracking-widest hover:bg-black hover:text-white transition-all">Soins Cheveux</Link>}
+        {menuCorpsActive && <Link href="/boutique/Corps" className="border border-black rounded-full py-5 text-[10px] font-bold uppercase tracking-widest hover:bg-black hover:text-white transition-all">Soins du Corps</Link>}
       </div>
     </div>
   );
@@ -315,8 +334,14 @@ export default function PanierPage() {
             <div className="space-y-4">
               <div className="flex justify-between text-xs"><span>Sous-total</span><span className="font-bold">{productsTotal.toFixed(2)} MAD</span></div>
               <div className="flex justify-between text-xs"><span>Packaging</span><span className="font-bold">{packagingTotal.toFixed(2)} MAD</span></div>
-              <div className="flex justify-between text-xs"><span>Livraison</span><span className="text-green-600 font-bold uppercase text-[9px] tracking-widest bg-green-50 px-2 py-1 rounded">Gratuite</span></div>
-              <div className="pt-4 border-t flex justify-between items-end"><span className="font-serif text-lg uppercase">Total</span><p className="text-xl font-bold text-[#B29071]">{totalFinal.toFixed(2)} MAD</p></div>
+              <div className="flex justify-between text-xs">
+                <span>Livraison</span>
+                <span className={`font-bold uppercase text-[9px] tracking-widest px-2 py-1 rounded ${shippingFee === 0 ? "text-green-600 bg-green-50" : "text-amber-700 bg-amber-50"}`}>
+                  {shippingFee === 0 ? "Gratuite" : `${shippingFee.toFixed(2)} MAD`}
+                </span>
+              </div>
+              <p className="text-[10px] text-gray-500">Frais de livraison calculés au moment de la commande.</p>
+              <div className="pt-4 border-t flex justify-between items-end"><span className="font-serif text-lg uppercase">Total</span><p className="text-xl font-bold text-[#B29071]">{totalWithShipping.toFixed(2)} MAD</p></div>
             </div>
             <Link href="/checkout" className="w-full bg-black text-white py-4 rounded-full text-[9px] font-bold uppercase tracking-[0.2em] hover:bg-[#B29071] transition-all flex items-center justify-center gap-2 shadow-xl">Finaliser <ArrowRight className="w-4 h-4" /></Link>
           </div>
