@@ -146,7 +146,7 @@ export default function CategoryPage() {
                     </div>
                   </Link>
                   <h3 className="font-serif text-[19px] uppercase leading-tight truncate">{product.name}</h3>
-                  <p className="text-[11px] uppercase leading-tight mt-0.5 truncate">{product.mini_title || product.description_short || "Soin Skineno"}</p>
+                  <p className="text-[11px] uppercase leading-tight mt-0.5 truncate">{product.mini_title || product.description_short || "Soin Skinino"}</p>
                   {(product.format || product.format_alt) && (
                     <p className="text-[9px] uppercase leading-tight mt-0.5 text-gray-500 truncate">
                       {[product.format, product.format_alt].filter(Boolean).join(" · ")}
@@ -181,7 +181,7 @@ export default function CategoryPage() {
                     </div>
                   </Link>
                   <h3 className="font-serif text-[26px] uppercase leading-[0.95]">{product.name}</h3>
-                  <p className="text-[12px] uppercase leading-tight mt-1">{product.mini_title || product.description_short || "Soin Skineno"}</p>
+                  <p className="text-[12px] uppercase leading-tight mt-1">{product.mini_title || product.description_short || "Soin Skinino"}</p>
                   {(product.format || product.format_alt) && (
                     <p className="text-[10px] uppercase leading-tight mt-0.5 text-gray-500 truncate">
                       {[product.format, product.format_alt].filter(Boolean).join(" · ")}

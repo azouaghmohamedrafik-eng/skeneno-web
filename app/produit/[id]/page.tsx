@@ -17,6 +17,7 @@ interface Product {
   price: number; 
   price_alt?: number;
   stock: number;
+  stock_alt?: number;
   image_url: string;
   image_url_2?: string;
   image_url_3?: string;
@@ -54,24 +55,21 @@ export default function ProductPage() {
   const mainCtaRef = useRef<HTMLDivElement | null>(null);
   const [isMainCtaVisible, setIsMainCtaVisible] = useState(true);
 
-  const getBaseProductId = (cartProductId: string) => (
-    cartProductId.endsWith(ALT_VARIANT_SUFFIX)
-      ? cartProductId.slice(0, -ALT_VARIANT_SUFFIX.length)
-      : cartProductId
-  );
-  const quantityInCart = (cart || []).reduce((sum: number, item: any) => (
-    getBaseProductId(String(item.product_id || "")) === String(id)
-      ? sum + Number(item.quantity || 0)
-      : sum
-  ), 0);
-  const stockTotal = product ? Number(product.stock) : 0;
-  const availableToAdd = Math.max(0, stockTotal - quantityInCart);
   const hasAltVariant = Boolean((product?.format_alt || "").trim()) && Number(product?.price_alt || 0) > 0;
   const selectedPrice = selectedFormatKey === "alt" && hasAltVariant ? Number(product?.price_alt || 0) : Number(product?.price || 0);
   const selectedFormat = selectedFormatKey === "alt" && hasAltVariant ? String(product?.format_alt || "") : String(product?.format || "");
   const selectedCartProductId = product
     ? (selectedFormatKey === "alt" && hasAltVariant ? `${product.id}${ALT_VARIANT_SUFFIX}` : String(product.id))
     : "";
+  const quantityInCart = (cart || []).reduce((sum: number, item: any) => (
+    String(item.product_id || "") === selectedCartProductId
+      ? sum + Number(item.quantity || 0)
+      : sum
+  ), 0);
+  const stockTotal = selectedFormatKey === "alt" && hasAltVariant
+    ? Number(product?.stock_alt || 0)
+    : Number(product?.stock || 0);
+  const availableToAdd = Math.max(0, stockTotal - quantityInCart);
 
   useEffect(() => {
     if (availableToAdd <= 0) {
@@ -101,6 +99,7 @@ export default function ProductPage() {
             price: Number(productDoc.price),
             price_alt: Number(productDoc.price_alt || 0),
             stock: Number(productDoc.stock || 0),
+            stock_alt: Number(productDoc.stock_alt || 0),
             image_url: productDoc.image_url,
             image_url_2: productDoc.image_url_2 || "",
             image_url_3: productDoc.image_url_3 || "",
@@ -306,43 +305,40 @@ export default function ProductPage() {
             <p className="text-[#B29071] font-bold text-xl tracking-widest pt-1">
               {selectedPrice.toFixed(2)} MAD
             </p>
-            <div className="flex flex-wrap gap-3 mt-4">
-              {product.format && !hasAltVariant && (
-                <span className="inline-block px-3 py-1 bg-gray-100 text-[10px] font-bold uppercase tracking-widest rounded">
-                  Format: {product.format}
-                </span>
-              )}
-              {hasAltVariant && (
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setSelectedFormatKey("primary")}
-                    className={`px-3 py-1 text-[10px] font-bold uppercase tracking-widest rounded border transition ${selectedFormatKey === "primary" ? "border-black bg-black text-white" : "border-gray-200 bg-white text-black"}`}
-                  >
-                    {product.format}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setSelectedFormatKey("alt")}
-                    className={`px-3 py-1 text-[10px] font-bold uppercase tracking-widest rounded border transition ${selectedFormatKey === "alt" ? "border-black bg-black text-white" : "border-gray-200 bg-white text-black"}`}
-                  >
-                    {product.format_alt}
-                  </button>
+            <div className="mt-5 pt-4 border-t border-gray-100">
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <div className="space-y-3">
+                  {selectedFormat && (
+                    <p className="text-[12px] font-bold uppercase tracking-[0.16em]">Format: {selectedFormat}</p>
+                  )}
+                  {hasAltVariant && (
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedFormatKey("primary")}
+                        className={`px-4 py-2 text-sm leading-none rounded-full border transition ${selectedFormatKey === "primary" ? "border-black bg-black text-white font-bold" : "border-gray-300 bg-white text-black"}`}
+                      >
+                        {product.format}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedFormatKey("alt")}
+                        className={`px-4 py-2 text-sm leading-none rounded-full border transition ${selectedFormatKey === "alt" ? "border-black bg-black text-white font-bold" : "border-gray-300 bg-white text-black"}`}
+                      >
+                        {product.format_alt}
+                      </button>
+                    </div>
+                  )}
                 </div>
-              )}
-              {selectedFormat && (
-                <span className="inline-block px-3 py-1 bg-gray-100 text-[10px] font-bold uppercase tracking-widest rounded">
-                  Sélection: {selectedFormat}
-                </span>
-              )}
-              <span className={`inline-block px-3 py-1 text-[10px] font-bold uppercase tracking-widest rounded ${product.stock > 0 ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
-                {product.stock > 0 ? `En stock: ${product.stock}` : 'En rupture'}
-              </span>
-              {quantityInCart > 0 && (
-                <span className="inline-block px-3 py-1 bg-blue-50 text-blue-700 text-[10px] font-bold uppercase tracking-widest rounded">
-                  Dans le panier: {quantityInCart}
-                </span>
-              )}
+                <div className="text-right space-y-1">
+                  <p className={`text-[11px] font-bold uppercase tracking-widest ${stockTotal > 0 ? "text-green-700" : "text-red-600"}`}>
+                    {stockTotal > 0 ? `En stock: ${stockTotal}` : "Rupture de stock"}
+                  </p>
+                  {quantityInCart > 0 && (
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-blue-700">Dans le panier: {quantityInCart}</p>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
 
@@ -415,7 +411,7 @@ export default function ProductPage() {
               }`}
             >
               <ShoppingBag className="w-4 h-4" /> 
-              {product.stock <= 0 
+              {stockTotal <= 0 
                 ? "Rupture de stock" 
                 : availableToAdd <= 0 
                   ? "Limite de stock atteinte" 
@@ -488,7 +484,7 @@ export default function ProductPage() {
             >
               <ShoppingBag className="w-4 h-4" />
               <span className="hidden sm:inline">
-                {product.stock <= 0 ? "Rupture de stock" : availableToAdd <= 0 ? "Limite atteinte" : "Ajouter au panier"}
+                {stockTotal <= 0 ? "Rupture de stock" : availableToAdd <= 0 ? "Limite atteinte" : "Ajouter au panier"}
               </span>
             </button>
           </div>

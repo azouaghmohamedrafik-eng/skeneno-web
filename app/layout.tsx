@@ -20,8 +20,8 @@ const montserrat = Montserrat({
 });
 
 export const metadata: Metadata = {
-  title: "Skineno | Cosmétique de Luxe",
-  description: "L'art du soin marocain par Skineno",
+  title: "Skinino | Cosmétique de Luxe",
+  description: "L'art du soin marocain par Skinino",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

@@ -136,7 +136,7 @@ export default function ComptePage() {
               <h1 className="text-3xl md:text-4xl font-serif mb-2 uppercase tracking-tighter">
                 Bonjour, {profile.full_name ? profile.full_name.split(' ')[0] : 'Client'}
               </h1>
-              <p className="text-[10px] text-gray-400 font-bold uppercase tracking-[0.3em]">Votre rituel Skineno</p>
+              <p className="text-[10px] text-gray-400 font-bold uppercase tracking-[0.3em]">Votre rituel Skinino</p>
             </div>
             <button onClick={handleLogout} className="flex items-center gap-2 text-[9px] font-bold uppercase tracking-[0.2em] text-red-400 hover:text-red-600 border border-red-50 px-6 py-3 rounded-full bg-red-50/20 transition-all">
               <LogOut className="w-3.5 h-3.5" /> Se déconnecter

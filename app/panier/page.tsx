@@ -128,7 +128,7 @@ export default function PanierPage() {
               price: Number(useAlt ? doc.price_alt : doc.price),
               image_url: doc.image_url,
               quantity: Number(cartRow.quantity || 1),
-              stock: Number(doc.stock || 0),
+              stock: Number(useAlt ? doc.stock_alt || 0 : doc.stock || 0),
               format: String(useAlt ? doc.format_alt : doc.format || ""),
               isGift: doc.$id === currentGiftId,
               cartDocId: cartRow.$id || ""

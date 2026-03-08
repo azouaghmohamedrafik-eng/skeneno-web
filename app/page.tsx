@@ -132,7 +132,7 @@ export default function Home() {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-white text-gray-400">
         <Loader2 className="w-10 h-10 animate-spin text-[#B29071] mb-4" />
-        <p className="text-[10px] uppercase tracking-widest">Chargement de l'univers Skineno...</p>
+        <p className="text-[10px] uppercase tracking-widest">Chargement de l'univers Skinino...</p>
       </div>
     );
   }
@@ -209,7 +209,7 @@ export default function Home() {
             key={`img1-${currentSlide}`}
             src={slides[currentSlide]?.image1_url || "/img/placeholder.jpg"} 
             className="w-full h-full object-cover animate-fade-in duration-1000" 
-            alt="Skineno Concept" 
+            alt="Skinino Concept" 
           />
         </div>
 
@@ -219,7 +219,7 @@ export default function Home() {
             key={`img2-${currentSlide}`}
             src={slides[currentSlide]?.image2_url || "/img/placeholder-2.jpg"} 
             className="w-full h-full object-cover animate-fade-in duration-1000" 
-            alt="Skineno Ritual" 
+            alt="Skinino Ritual" 
           />
         </div>
 
@@ -269,7 +269,7 @@ export default function Home() {
                   </div>
                 </Link>
                 <h4 className="text-[22px] font-serif tracking-tight text-black uppercase leading-tight truncate">{item.name}</h4>
-                <p className="text-[11px] text-black mt-0.5 uppercase tracking-wide truncate">{item.mini_title || item.miniTitle || item.description_short || "Soin Skineno"}</p>
+                <p className="text-[11px] text-black mt-0.5 uppercase tracking-wide truncate">{item.mini_title || item.miniTitle || item.description_short || "Soin Skinino"}</p>
                 <div className="mt-2 flex items-center gap-2">
                   <button
                     type="button"
@@ -305,7 +305,7 @@ export default function Home() {
                 />
               </div>
               <h4 className="text-xl font-serif tracking-wide text-black uppercase leading-tight truncate">{item.name}</h4>
-              <p className="text-[11px] text-black mt-1 uppercase tracking-wide truncate">{item.mini_title || item.miniTitle || item.description_short || "Soin Skineno"}</p>
+              <p className="text-[11px] text-black mt-1 uppercase tracking-wide truncate">{item.mini_title || item.miniTitle || item.description_short || "Soin Skinino"}</p>
               <div className="mt-2">
                 <p className="text-[15px] leading-none font-bold text-black tracking-tight">{Number(item.price).toFixed(2)} DH</p>
                 <div className="flex items-center justify-center gap-1 mt-1.5">

@@ -89,7 +89,7 @@ export default function BoutiquePage() {
         <div className="max-w-3xl mx-auto">
           <h1 className="text-4xl md:text-5xl font-serif mb-6 tracking-tight">Tous nos produits</h1>
           <p className="text-sm text-gray-500 font-light leading-relaxed uppercase tracking-[0.2em]">
-            Découvrez l'intégralité de la collection Skineno
+            Découvrez l'intégralité de la collection Skinino
           </p>
         </div>
       </header>
@@ -108,7 +108,7 @@ export default function BoutiquePage() {
                 </div>
               </Link>
               <h3 className="font-serif text-[17px] uppercase leading-tight truncate">{product.name}</h3>
-              <p className="text-[10px] uppercase leading-tight mt-0.5 truncate">{product.mini_title || product.description_short || "Soin Skineno"}</p>
+              <p className="text-[10px] uppercase leading-tight mt-0.5 truncate">{product.mini_title || product.description_short || "Soin Skinino"}</p>
               {(product.format || product.format_alt) && (
                 <p className="text-[9px] uppercase leading-tight mt-0.5 text-gray-500 truncate">
                   {[product.format, product.format_alt].filter(Boolean).join(" · ")}
@@ -143,7 +143,7 @@ export default function BoutiquePage() {
                 </div>
               </Link>
               <h3 className="font-serif text-[17px] uppercase leading-tight truncate">{product.name}</h3>
-              <p className="text-[10px] uppercase leading-tight mt-1 truncate">{product.mini_title || product.description_short || "Soin Skineno"}</p>
+              <p className="text-[10px] uppercase leading-tight mt-1 truncate">{product.mini_title || product.description_short || "Soin Skinino"}</p>
               {(product.format || product.format_alt) && (
                 <p className="text-[9px] uppercase leading-tight mt-0.5 text-gray-500 truncate">
                   {[product.format, product.format_alt].filter(Boolean).join(" · ")}

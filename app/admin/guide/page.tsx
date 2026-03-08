@@ -13,12 +13,22 @@ export default function AdminGuidePage() {
       {/* HEADER DE HAUTE QUALITÉ */}
       <div className="border-b border-gray-100 pb-12 relative">
         <div className="absolute -top-10 -left-10 w-64 h-64 bg-[#B29071]/5 rounded-full blur-3xl -z-10"></div>
-        <h2 className="text-6xl font-serif mb-6 leading-tight">Guide d'Utilisation <br /><span className="text-[#B29071] text-3xl font-sans font-bold uppercase tracking-[0.3em]">Skineno Admin</span></h2>
+        <h2 className="text-6xl font-serif mb-6 leading-tight">Guide d'Utilisation <br /><span className="text-[#B29071] text-3xl font-sans font-bold uppercase tracking-[0.3em]">Skinino Admin</span></h2>
         <p className="text-gray-500 text-xl max-w-3xl leading-relaxed font-light">
-          Ce manuel interactif a été conçu pour vous accompagner dans la gestion quotidienne de votre boutique. 
-          Suivez ces protocoles pour garantir une expérience client irréprochable et optimiser vos performances commerciales.
+          Ce guide a été actualisé pour refléter votre back-office réel. 
+          Suivez ce protocole pour gérer produits, variantes, stock, commandes et marketing avec un flux simple et fiable.
         </p>
       </div>
+
+      <section className="bg-white p-8 rounded-[2rem] border border-gray-100 shadow-sm">
+        <h3 className="text-sm font-bold uppercase tracking-widest text-gray-400 mb-6">Routine rapide quotidienne</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <p className="text-sm text-gray-600">1. Vérifiez les commandes en attente et confirmez les adresses.</p>
+          <p className="text-sm text-gray-600">2. Contrôlez la page Stock, surtout les variantes 100ml/200ml.</p>
+          <p className="text-sm text-gray-600">3. Ajustez Produits si un format secondaire doit être ajouté ou retiré.</p>
+          <p className="text-sm text-gray-600">4. Testez un panier pour valider cadeau, packaging et livraison.</p>
+        </div>
+      </section>
 
       {/* MODULE 1: CATALOGUE & STRATÉGIE */}
       <section className="space-y-10">
@@ -42,15 +52,15 @@ export default function AdminGuidePage() {
                 <div className="space-y-3">
                   <p className="font-bold text-sm uppercase tracking-wider">Fiche Produit</p>
                   <p className="text-sm text-gray-500 leading-relaxed">
-                    Chaque produit doit posséder un <strong>Nom clair</strong>, un <strong>Prix précis</strong> et un <strong>Format</strong> (ex: 100ml). 
-                    La description est votre meilleur vendeur : utilisez des mots qui évoquent le luxe et le bien-être.
+                    Utilisez le formulaire repliable pour créer ou modifier rapidement un produit. 
+                    Ajoutez le format principal, puis le format secondaire uniquement si vous vendez une seconde contenance.
                   </p>
                 </div>
                 <div className="space-y-3">
                   <p className="font-bold text-sm uppercase tracking-wider">Badges & Visibilité</p>
                   <p className="text-sm text-gray-500 leading-relaxed">
-                    Cochez les catégories (Visage, Corps, Cheveux) pour que le produit apparaisse dans les menus. 
-                    Le badge <strong>"Spécial"</strong> ajoute une touche d'exclusivité visuelle sur la boutique.
+                    Cochez Visage, Corps, Cheveux et les badges Offre, Cadeau, Spécial selon la stratégie. 
+                    Le statut <strong>Suggéré</strong> affiche le produit en cross-sell dans le panier.
                   </p>
                 </div>
               </div>
@@ -61,9 +71,8 @@ export default function AdminGuidePage() {
                 <Sparkles className="w-5 h-5" /> Stratégie de Vente Croisée
               </h4>
               <p className="text-sm text-gray-600 mt-4 leading-relaxed">
-                La fonction <strong>"Suggéré" (Sparkles)</strong> est un outil puissant. En cochant cette case, le produit sera 
-                automatiquement proposé dans le panier du client sous la section <strong>"Complétez votre routine"</strong>. 
-                Utilisez-le pour proposer des produits complémentaires (ex: proposer une huile après l'achat d'une crème).
+                Utilisez Suggéré pour recommander des routines cohérentes. Exemple: sérum + crème + huile. 
+                Le client voit ces produits dans le panier, ce qui augmente naturellement le panier moyen.
               </p>
             </div>
           </div>
@@ -72,10 +81,10 @@ export default function AdminGuidePage() {
             <Lightbulb className="w-10 h-10 text-blue-200" />
             <h4 className="font-bold text-2xl leading-tight">Cas Pratique : <br />Lancement de Saison</h4>
             <p className="text-blue-100 text-sm leading-relaxed">
-              Pour lancer une nouvelle gamme : <br /><br />
-              1. Créez les produits avec le badge <strong>"Spécial"</strong>.<br />
-              2. Marquez les 3 produits phares comme <strong>"Suggérés"</strong>.<br />
-              3. Mettez à jour le <strong>Slider d'accueil</strong> avec un visuel de la gamme et liez-le au produit principal.
+              Pour une gamme avec 100ml et 200ml : <br /><br />
+              1. Créez la fiche avec format et prix principal.<br />
+              2. Ajoutez Format 2 + Prix 2 uniquement si la variante existe.<br />
+              3. Vérifiez le stock de chaque format dans <strong>Gestion du Stock</strong>.
             </p>
             <div className="pt-4">
               <div className="inline-flex items-center gap-2 bg-white/10 px-4 py-2 rounded-full text-xs font-bold uppercase tracking-widest">
@@ -106,9 +115,8 @@ export default function AdminGuidePage() {
                 <h4 className="font-bold uppercase tracking-wider text-sm">Synchronisation</h4>
               </div>
               <p className="text-sm text-gray-500 leading-relaxed">
-                Le stock est mis à jour en temps réel. Si vous réglez une quantité sur <strong>0</strong>, 
-                le site bloque automatiquement l'achat et affiche <strong>"Rupture de stock"</strong>. 
-                Cela évite les frustrations clients et les remboursements.
+                Le stock suit désormais la variante réellement vendue. 
+                Si le client achète 200ml, la déduction se fait sur le stock de 200ml, pas sur 100ml.
               </p>
             </div>
             <div className="space-y-4">
@@ -117,8 +125,8 @@ export default function AdminGuidePage() {
                 <h4 className="font-bold uppercase tracking-wider text-sm">Mise à jour Rapide</h4>
               </div>
               <p className="text-sm text-gray-500 leading-relaxed">
-                La page <strong>"Stock"</strong> est optimisée pour les inventaires. Utilisez les boutons + et - 
-                pour ajuster les quantités sans avoir à modifier chaque fiche produit individuellement.
+                La page <strong>Stock</strong> affiche une ligne par format. 
+                Utilisez + et - pour ajuster séparément chaque variante sans ouvrir chaque fiche produit.
               </p>
             </div>
             <div className="space-y-4 p-6 bg-red-50 rounded-[2rem] border border-red-100">
@@ -127,8 +135,8 @@ export default function AdminGuidePage() {
                 <h4 className="font-bold uppercase tracking-wider text-sm">Alerte Critique</h4>
               </div>
               <p className="text-xs text-red-800/70 leading-relaxed">
-                Un stock à 0 fait chuter votre taux de conversion. Anticipez vos réapprovisionnements 
-                lorsque le stock descend en dessous de 5 unités (le chiffre passera en rouge dans votre tableau).
+                Gardez l’attribut <strong>stock_alt</strong> actif dans la collection products pour piloter les formats secondaires. 
+                Un stock à 0 bloque immédiatement l’achat côté client.
               </p>
             </div>
           </div>
@@ -151,17 +159,17 @@ export default function AdminGuidePage() {
           <div className="bg-white p-8 rounded-[2rem] border border-gray-100 shadow-sm space-y-4 relative overflow-hidden">
             <div className="absolute top-0 right-0 p-4 bg-amber-50 text-amber-600 font-bold text-[10px] uppercase">Phase 1</div>
             <h5 className="font-bold text-lg">En attente</h5>
-            <p className="text-sm text-gray-500 leading-relaxed">La commande est enregistrée. Vérifiez les détails du panier et l'adresse de livraison fournie par le client.</p>
+            <p className="text-sm text-gray-500 leading-relaxed">Commande reçue. Vérifiez adresse, téléphone, contenu panier et message cadeau.</p>
           </div>
           <div className="bg-white p-8 rounded-[2rem] border border-gray-100 shadow-sm space-y-4 relative overflow-hidden">
             <div className="absolute top-0 right-0 p-4 bg-blue-50 text-blue-600 font-bold text-[10px] uppercase">Phase 2</div>
             <h5 className="font-bold text-lg">Expédié</h5>
-            <p className="text-sm text-gray-500 leading-relaxed">Le colis est entre les mains du transporteur. C'est le moment idéal pour utiliser le bouton <strong>WhatsApp</strong>.</p>
+            <p className="text-sm text-gray-500 leading-relaxed">Le colis part. Le stock est déduit automatiquement, y compris la bonne variante (100ml/200ml).</p>
           </div>
           <div className="bg-white p-8 rounded-[2rem] border border-gray-100 shadow-sm space-y-4 relative overflow-hidden">
             <div className="absolute top-0 right-0 p-4 bg-green-50 text-green-600 font-bold text-[10px] uppercase">Phase 3</div>
             <h5 className="font-bold text-lg">Livré</h5>
-            <p className="text-sm text-gray-500 leading-relaxed">Le client a reçu son colis. Le statut "Livré" permet de clôturer la transaction proprement dans vos statistiques.</p>
+            <p className="text-sm text-gray-500 leading-relaxed">Commande finalisée. Si vous repassez en attente, la restauration du stock est automatique.</p>
           </div>
         </div>
 
@@ -172,9 +180,8 @@ export default function AdminGuidePage() {
           <div className="space-y-4">
             <h4 className="text-2xl font-bold">L'Excellence du Service via WhatsApp</h4>
             <p className="text-green-50 leading-relaxed max-w-2xl">
-              Le bouton WhatsApp génère automatiquement un lien vers le numéro du client avec un message pré-rempli. 
-              <strong> Pourquoi l'utiliser ?</strong> Cela humanise votre marque de luxe, rassure le client sur son expédition 
-              y réduit drastiquement les demandes au support. Assurez-vous que le numéro du client est au format international.
+              Le bouton WhatsApp prépare un message prêt à envoyer au moment de l’expédition. 
+              Utilisez-le pour confirmer le départ du colis et améliorer la confiance client.
             </p>
           </div>
         </div>
@@ -196,25 +203,22 @@ export default function AdminGuidePage() {
           <div className="bg-white p-10 rounded-[2.5rem] border border-gray-100 shadow-sm space-y-6">
             <div className="flex items-center gap-4 text-amber-600">
               <Heart className="w-6 h-6" />
-              <h4 className="font-bold text-xl uppercase tracking-wider">Règles de Cadeaux</h4>
+              <h4 className="font-bold text-xl uppercase tracking-wider">Cadeaux + Offre automatique</h4>
             </div>
             <p className="text-sm text-gray-500 leading-relaxed">
-              Dans <strong>Configuration</strong>, vous pouvez définir un seuil de cadeau (ex: 1500 MAD). <br /><br />
-              - <strong>Impact :</strong> Une barre de progression apparaîtra dans le panier du client pour l'encourager à acheter plus afin de débloquer le cadeau. <br />
-              - <strong>Flexibilité :</strong> Vous pouvez changer le nom du cadeau et le montant minimum à tout moment selon vos stocks.
+              1. Créez vos cadeaux dans la section <strong>Cadeaux</strong> (nom, image, actif/inactif).<br /><br />
+              2. Dans <strong>Packaging</strong>, sélectionnez le cadeau offert, le seuil en MAD et activez la règle.
             </p>
           </div>
 
           <div className="bg-white p-10 rounded-[2.5rem] border border-gray-100 shadow-sm space-y-6">
             <div className="flex items-center gap-4 text-amber-600">
               <Package className="w-6 h-6" />
-              <h4 className="font-bold text-xl uppercase tracking-wider">Packaging Cadeau</h4>
+              <h4 className="font-bold text-xl uppercase tracking-wider">Packaging & Panier</h4>
             </div>
             <p className="text-sm text-gray-500 leading-relaxed">
-              Gérez vos options de coffrets et pochettes dans la section <strong>Packaging</strong>. <br /><br />
-              - <strong>Visuels :</strong> Téléchargez des photos de haute qualité de vos boîtes cadeaux. <br />
-              - <strong>Prix :</strong> Définissez un prix additionnel ou laissez à 0 pour offrir le packaging. <br />
-              - <strong>Contrôle :</strong> Si vous n'avez plus de coffrets, passez l'option sur "Désactivé" pour qu'elle disparaisse du site.
+              Activez/désactivez coffret et pochette, définissez les prix et chargez les visuels. 
+              Les options apparaissent ensuite dans le drawer panier et dans la page panier.
             </p>
           </div>
         </div>
@@ -226,8 +230,8 @@ export default function AdminGuidePage() {
             <Settings className="w-10 h-10" />
           </div>
           <div>
-            <h3 className="text-3xl font-bold">05. Coupons & Menu de Campagne</h3>
-            <p className="text-sm text-gray-400 uppercase tracking-widest font-bold">Promotions contrôlées et élégantes</p>
+            <h3 className="text-3xl font-bold">05. Coupons, Menu & Livraison</h3>
+            <p className="text-sm text-gray-400 uppercase tracking-widest font-bold">Pilotage global du front-office</p>
           </div>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
@@ -255,16 +259,19 @@ export default function AdminGuidePage() {
                 <CheckCircle2 className="w-5 h-5" />
                 <p className="text-sm">Activation/désactivation et édition rapides depuis la liste.</p>
               </div>
+              <p className="text-sm text-gray-600 leading-relaxed">
+                Dans la section Livraison, configurez aussi le panneau d’expédition et les tarifs par zone affichés au client.
+              </p>
             </div>
           </div>
           <div className="bg-white p-10 rounded-[2.5rem] border border-gray-100 shadow-sm space-y-6">
             <div className="flex items-center gap-4 text-violet-600">
               <Sparkles className="w-6 h-6" />
-              <h4 className="font-bold text-xl uppercase tracking-wider">Menu de Campagne</h4>
+              <h4 className="font-bold text-xl uppercase tracking-wider">Menu de Campagne & Messages</h4>
             </div>
             <p className="text-sm text-gray-600 leading-relaxed">
-              Affichez un lien de campagne dans la barre de navigation pour vos opérations marketing. 
-              Utilisez un intitulé court et impactant, par exemple <span className="font-bold">Ramadan</span>, <span className="font-bold">Soldes</span> ou <span className="font-bold">Nouveautés</span>.
+              Dans Configuration, pilotez le menu dynamique, les onglets Visage/Corps/Cheveux et les messages top-bar. 
+              Utilisez des textes courts pour préserver la lisibilité sur mobile.
             </p>
             <div className="rounded-2xl border p-4 space-y-2">
               <p className="text-[10px] font-bold uppercase text-gray-400">Bonnes pratiques</p>
@@ -284,25 +291,30 @@ export default function AdminGuidePage() {
             <ImageIcon className="w-10 h-10" />
           </div>
           <div>
-            <h3 className="text-3xl font-bold">06. Slider & Footer</h3>
-            <p className="text-sm text-gray-400 uppercase tracking-widest font-bold">Identité et crédibilité</p>
+            <h3 className="text-3xl font-bold">06. Slider, Footer & Contrôle qualité</h3>
+            <p className="text-sm text-gray-400 uppercase tracking-widest font-bold">Contenu visuel et cohérence marque</p>
           </div>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
           <div className="bg-white p-10 rounded-[2.5rem] border border-gray-100 shadow-sm space-y-6">
             <h4 className="font-bold text-xl">Slider d’accueil</h4>
             <p className="text-sm text-gray-600 leading-relaxed">
-              Utilisez des visuels haute définition. Chaque slide peut être liée à un produit ou une collection. 
-              Respectez un texte court et une hiérarchie claire pour rester premium.
+              Mettez à jour images, textes, produit lié et vidéo hero si besoin. 
+              Gardez des visuels haute définition et des titres courts pour une lecture claire.
             </p>
           </div>
           <div className="bg-white p-10 rounded-[2.5rem] border border-gray-100 shadow-sm space-y-6">
             <h4 className="font-bold text-xl">Footer</h4>
             <p className="text-sm text-gray-600 leading-relaxed">
-              Mettez à jour les liens sociaux et les mentions légales. Un footer complet augmente la confiance 
-              et améliore la conversion sur une marque de luxe.
+              Activez uniquement les réseaux vraiment utilisés. 
+              Contrôlez régulièrement les URL pour éviter les liens cassés et préserver la crédibilité.
             </p>
           </div>
+        </div>
+        <div className="bg-black text-white p-7 rounded-[2rem]">
+          <p className="text-sm leading-relaxed">
+            Contrôle hebdomadaire recommandé: vérifier une commande test, valider les stocks critiques, relire les messages promo et confirmer que chaque section admin reste alignée avec la campagne active.
+          </p>
         </div>
       </section>
 
@@ -314,7 +326,7 @@ export default function AdminGuidePage() {
         </div>
         <div className="flex items-center gap-4">
             <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-            <p className="text-[10px] font-bold uppercase text-gray-300 tracking-[0.4em]">Skineno OS v1.1.0 - 2026</p>
+            <p className="text-[10px] font-bold uppercase text-gray-300 tracking-[0.4em]">Skinino OS v1.1.0 - 2026</p>
         </div>
       </div>
     </div>

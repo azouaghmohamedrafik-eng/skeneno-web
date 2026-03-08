@@ -134,7 +134,7 @@ export default function Footer() {
           <Link href="#" className="hover:text-black transition-colors">CGV</Link>
           <Link href="#" className="hover:text-black transition-colors">Livraison</Link>
         </div>
-        <p>© 2026 Skineno. Tous droits réservés.</p>
+        <p>© 2026 Skinino. Tous droits réservés.</p>
       </div>
     </footer>
   );

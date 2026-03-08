@@ -49,7 +49,7 @@ export default function ThankYouPage() {
             </div>
             <div className="hidden md:block w-1 h-1 bg-gray-300 rounded-full"></div>
             <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-gray-400">
-              <Instagram className="w-4 h-4" /> @Skineno_Maroc
+              <Instagram className="w-4 h-4" /> @Skinino_Maroc
             </div>
           </div>
         </div>
@@ -71,7 +71,7 @@ export default function ThankYouPage() {
         </div>
 
         <p className="text-[9px] text-gray-400 uppercase tracking-widest pt-10">
-          Skineno — L'art du soin marocain authentique
+          Skinino — L'art du soin marocain authentique
         </p>
       </div>
     </div>

@@ -8,11 +8,23 @@ import { Loader2, Search, Plus, Minus, CheckCircle2, AlertTriangle, Package } fr
 interface ProductStock {
   $id: string;
   name: string;
+  format?: string;
+  format_alt?: string;
   stock: number;
+  stock_alt?: number;
+}
+
+interface StockRow {
+  rowId: string;
+  productId: string;
+  name: string;
+  format: string;
+  stock: number;
+  isAlt: boolean;
 }
 
 export default function StockManagementPage() {
-  const [products, setProducts] = useState<ProductStock[]>([]);
+  const [products, setProducts] = useState<StockRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [updatingId, setUpdatingId] = useState<string | null>(null);
@@ -26,11 +38,38 @@ export default function StockManagementPage() {
     try {
       setLoading(true);
       const res = await databases.listDocuments(DATABASE_ID, 'products', [Query.orderAsc('name')]);
-      setProducts(res.documents.map((d: any) => ({
+      const mappedProducts: ProductStock[] = res.documents.map((d: any) => ({
         $id: d.$id,
         name: d.name,
-        stock: d.stock || 0
-      })));
+        format: String(d.format || ""),
+        format_alt: String(d.format_alt || ""),
+        stock: Number(d.stock || 0),
+        stock_alt: Number((d as any).stock_alt || 0)
+      }));
+      const rows: StockRow[] = mappedProducts.flatMap((p) => {
+        const primaryFormat = String(p.format || "").trim();
+        const altFormat = String(p.format_alt || "").trim();
+        const hasAltVariant = altFormat.length > 0;
+        const primaryRow: StockRow = {
+          rowId: `${p.$id}::primary`,
+          productId: p.$id,
+          name: p.name,
+          format: primaryFormat || "Format principal",
+          stock: Number(p.stock || 0),
+          isAlt: false
+        };
+        if (!hasAltVariant) return [primaryRow];
+        const altRow: StockRow = {
+          rowId: `${p.$id}::alt`,
+          productId: p.$id,
+          name: p.name,
+          format: altFormat,
+          stock: Number(p.stock_alt || 0),
+          isAlt: true
+        };
+        return [primaryRow, altRow];
+      });
+      setProducts(rows);
     } catch (e) {
       console.error(e);
     } finally {
@@ -38,22 +77,23 @@ export default function StockManagementPage() {
     }
   }
 
-  const handleUpdateStock = async (id: string, newStock: number) => {
+  const handleUpdateStock = async (row: StockRow, newStock: number) => {
     if (newStock < 0) return;
-    setUpdatingId(id);
+    setUpdatingId(row.rowId);
     try {
-      await databases.updateDocument(DATABASE_ID, 'products', id, { stock: newStock });
-      setProducts(products.map(p => p.$id === id ? { ...p, stock: newStock } : p));
+      const payload = row.isAlt ? { stock_alt: newStock } : { stock: newStock };
+      await databases.updateDocument(DATABASE_ID, 'products', row.productId, payload);
+      setProducts((prev) => prev.map((p) => p.rowId === row.rowId ? { ...p, stock: newStock } : p));
       setNotif({ show: true, msg: "Stock mis à jour" });
       setTimeout(() => setNotif({ show: false, msg: "" }), 2000);
     } catch (e) {
-      alert("Erreur de mise à jour");
+      alert(row.isAlt ? "Erreur de mise à jour du stock secondaire (vérifiez stock_alt dans Appwrite)." : "Erreur de mise à jour");
     } finally {
       setUpdatingId(null);
     }
   };
 
-  const filteredProducts = products.filter(p => p.name.toLowerCase().includes(search.toLowerCase()));
+  const filteredProducts = products.filter(p => `${p.name} ${p.format}`.toLowerCase().includes(search.toLowerCase()));
 
   if (loading) return (
     <div className="flex justify-center items-center py-20"><Loader2 className="w-10 h-10 animate-spin text-[#B29071]" /></div>
@@ -92,13 +132,14 @@ export default function StockManagementPage() {
           <thead className="bg-gray-50 border-b text-[10px] font-bold uppercase text-gray-400">
             <tr>
               <th className="p-6">Produit</th>
+              <th className="p-6">Format</th>
               <th className="p-6 text-center">Quantité Actuelle</th>
               <th className="p-6 text-right">Actions Rapides</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
             {filteredProducts.map((p) => (
-              <tr key={p.$id} className="hover:bg-gray-50 transition-colors">
+              <tr key={p.rowId} className="hover:bg-gray-50 transition-colors">
                 <td className="p-6">
                   <p className="text-sm font-bold text-gray-800">{p.name}</p>
                   {p.stock === 0 && (
@@ -107,6 +148,11 @@ export default function StockManagementPage() {
                     </span>
                   )}
                 </td>
+                <td className="p-6">
+                  <span className={`text-xs font-bold uppercase px-2 py-1 rounded-full ${p.isAlt ? "bg-[#B29071]/10 text-[#8d6c4b]" : "bg-gray-100 text-gray-600"}`}>
+                    {p.format}
+                  </span>
+                </td>
                 <td className="p-6 text-center">
                   <span className={`text-lg font-mono font-bold ${p.stock < 5 ? 'text-red-500' : 'text-gray-800'}`}>
                     {p.stock}
@@ -114,18 +160,18 @@ export default function StockManagementPage() {
                 </td>
                 <td className="p-6">
                   <div className="flex justify-end items-center gap-4">
-                    {updatingId === p.$id ? (
+                    {updatingId === p.rowId ? (
                       <Loader2 className="w-4 h-4 animate-spin text-[#B29071]" />
                     ) : (
                       <>
                         <button 
-                          onClick={() => handleUpdateStock(p.$id, p.stock - 1)}
+                          onClick={() => handleUpdateStock(p, p.stock - 1)}
                           className="p-2 bg-gray-100 rounded-lg hover:bg-red-50 hover:text-red-500 transition-all shadow-sm"
                         >
                           <Minus className="w-4 h-4" />
                         </button>
                         <button 
-                          onClick={() => handleUpdateStock(p.$id, p.stock + 1)}
+                          onClick={() => handleUpdateStock(p, p.stock + 1)}
                           className="p-2 bg-gray-100 rounded-lg hover:bg-green-50 hover:text-green-600 transition-all shadow-sm"
                         >
                           <Plus className="w-4 h-4" />

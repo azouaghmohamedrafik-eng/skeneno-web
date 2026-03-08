@@ -591,7 +591,7 @@ export default function Navbar() {
 
           <div className="w-1/3 flex justify-center">
             <Link href="/">
-              <img src="/img/logo.png" alt="Logo Skineno" style={{ height: isSticky ? '45px' : '65px' }} className="object-contain transition-all duration-300" />
+              <img src="/img/logo.png" alt="Logo Skinino" style={{ height: isSticky ? '45px' : '65px' }} className="object-contain transition-all duration-300" />
             </Link>
           </div>
 

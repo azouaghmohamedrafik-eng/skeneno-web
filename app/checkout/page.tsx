@@ -34,6 +34,8 @@ interface ProductDetail {
 
 interface OrderItemRow {
   product_id: string;
+  cart_product_id?: string;
+  format?: string;
   quantity: number;
   isGift: boolean;
   item_type: "product" | "packaging";
@@ -331,6 +333,8 @@ export default function CheckoutPage() {
       const orderItems: OrderItemRow[] = [
         ...products.map((p) => ({
           product_id: p.$id,
+          cart_product_id: p.cartProductId,
+          format: p.format || "",
           quantity: p.quantity,
           isGift: Boolean(p.isGift),
           item_type: "product" as const,

@@ -15,7 +15,9 @@ import {
   Percent,
   Star,
   Package,
-  Sparkles // Nuevo icono para sugerencias
+  Sparkles,
+  ChevronDown,
+  ChevronUp
 } from "lucide-react";
 // MIGRACIÓN A APPWRITE
 import { databases, DATABASE_ID, storage } from "@/appwriteConfig";
@@ -60,6 +62,7 @@ export default function InventoryPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const [isFormOpen, setIsFormOpen] = useState(false);
   const [currentId, setCurrentId] = useState<string | null>(null);
   
   const [form, setForm] = useState({ 
@@ -69,6 +72,7 @@ export default function InventoryPage() {
   });
   
   const [uploading, setUploading] = useState<{ [key: string]: boolean }>({ img: false, img2: false, img3: false, img4: false });
+  const [isCategoriesOpen, setIsCategoriesOpen] = useState(false);
   const [newCatName, setNewCatName] = useState("");
   const [isEditingCat, setIsEditingCat] = useState(false);
   const [currentCatId, setCurrentCatId] = useState<string | null>(null);
@@ -126,6 +130,12 @@ export default function InventoryPage() {
     setTimeout(() => setNotif(prev => ({ ...prev, show: false })), 3000);
   };
 
+  const resetProductForm = () => {
+    setForm({ name: "", price: "", priceAlt: "", format: "", formatAlt: "", miniTitle: "", desc: "", descShort: "", descLong: "", ing: "", ingredientsTitle: "", ingredientsContent: "", cat: "", img: "", img2: "", img3: "", img4: "", isOffer: false, isGift: false, isVisage: false, isCorps: false, isCheveux: false, isSpecial: false, isSuggested: false });
+    setIsEditing(false);
+    setCurrentId(null);
+  };
+
   // --- CATEGORÍAS ---
   const handleSaveCategory = async () => {
     if (!newCatName.trim()) return;
@@ -173,11 +183,14 @@ export default function InventoryPage() {
   const handleSaveProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    const altFormat = form.formatAlt.trim();
+    const altPriceRaw = form.priceAlt.trim();
+    const parsedAltPrice = altPriceRaw ? parseFloat(altPriceRaw) : NaN;
+    const hasValidAltVariant = altFormat.length > 0 && Number.isFinite(parsedAltPrice) && parsedAltPrice > 0;
 
     const data: any = {
       name: form.name, 
       price: parseFloat(form.price), 
-      price_alt: form.priceAlt.trim() ? parseFloat(form.priceAlt) : null,
       image_url: form.img || null, 
       image_url_2: form.img2 || null,
       image_url_3: form.img3 || null,
@@ -187,7 +200,6 @@ export default function InventoryPage() {
       description_long: form.descLong || "",
       description: form.desc, 
       format: form.format, 
-      format_alt: form.formatAlt || "",
       ingredients: form.ing,
       ingredients_panel_title: form.ingredientsTitle || "",
       ingredients_panel_content: form.ingredientsContent || "",
@@ -200,6 +212,13 @@ export default function InventoryPage() {
       is_special: form.isSpecial,
       is_suggested: form.isSuggested // GUARDADO NUEVO
     };
+    if (hasValidAltVariant) {
+      data.price_alt = parsedAltPrice;
+      data.format_alt = altFormat;
+    } else if (isEditing) {
+      data.price_alt = null;
+      data.format_alt = "";
+    }
 
     if (!isEditing) data.stock = 0;
 
@@ -209,8 +228,8 @@ export default function InventoryPage() {
       } else {
         await databases.createDocument(DATABASE_ID, 'products', ID.unique(), data);
       }
-      setForm({ name: "", price: "", priceAlt: "", format: "", formatAlt: "", miniTitle: "", desc: "", descShort: "", descLong: "", ing: "", ingredientsTitle: "", ingredientsContent: "", cat: "", img: "", img2: "", img3: "", img4: "", isOffer: false, isGift: false, isVisage: false, isCorps: false, isCheveux: false, isSpecial: false, isSuggested: false });
-      setIsEditing(false);
+      resetProductForm();
+      setIsFormOpen(false);
       fetchData();
       notify("Produit enregistré !", "success");
     } catch (err: any) {
@@ -245,6 +264,7 @@ export default function InventoryPage() {
 
   const startEditProduct = (p: Product) => {
     setIsEditing(true);
+    setIsFormOpen(true);
     setCurrentId(p.id);
     setForm({
       name: p.name,
@@ -290,14 +310,25 @@ export default function InventoryPage() {
         <p className="text-sm text-gray-500">Gérez les fiches descriptives de vos rituels.</p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
         {/* FORMULAIRE PRODUIT */}
-        <div className="lg:col-span-2 bg-white p-8 rounded-xl shadow-sm border border-gray-100">
-          <h3 className="text-xs font-bold uppercase tracking-widest text-[#B29071] mb-6 flex items-center gap-2">
-            {isEditing ? <Pencil className="w-4 h-4"/> : <Plus className="w-4 h-4"/>} 
-            {isEditing ? "Modifier le produit" : "Ajouter un producto"}
-          </h3>
-          
+        <div className="lg:col-span-2 h-fit bg-white p-8 rounded-xl shadow-sm border border-gray-100">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-xs font-bold uppercase tracking-widest text-[#B29071] flex items-center gap-2">
+              {isEditing ? <Pencil className="w-4 h-4"/> : <Plus className="w-4 h-4"/>} 
+              {isEditing ? "Modifier le produit" : "Ajouter un producto"}
+            </h3>
+            <button
+              type="button"
+              onClick={() => setIsFormOpen(prev => !prev)}
+              className="px-4 py-2 rounded-full border border-gray-200 text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 hover:border-[#B29071] hover:text-[#B29071] transition"
+            >
+              {isFormOpen ? "Replier" : "Déplier"}
+              {isFormOpen ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+            </button>
+          </div>
+
+          {isFormOpen ? (
           <form onSubmit={handleSaveProduct} className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-1">
@@ -437,34 +468,53 @@ export default function InventoryPage() {
 
             <div className="flex justify-end gap-3">
               {isEditing && (
-                <button type="button" onClick={() => {setIsEditing(false); setForm({name:"", price:"", priceAlt:"", format:"", formatAlt:"", miniTitle:"", desc:"", descShort:"", descLong:"", ing:"", ingredientsTitle:"", ingredientsContent:"", cat:"", img:"", img2:"", img3:"", img4:"", isOffer: false, isGift: false, isVisage: false, isCorps: false, isCheveux: false, isSpecial: false, isSuggested: false})}} className="px-6 py-3 text-xs font-bold uppercase text-gray-400">Annuler</button>
+                <button type="button" onClick={() => {resetProductForm(); setIsFormOpen(false);}} className="px-6 py-3 text-xs font-bold uppercase text-gray-400">Annuler</button>
               )}
               <button type="submit" disabled={loading || Object.values(uploading).some(Boolean)} className="bg-black text-white px-10 py-3 rounded text-xs font-bold uppercase tracking-widest hover:bg-[#B29071] transition disabled:opacity-50">
                 {loading ? <Loader2 className="w-4 h-4 animate-spin mx-auto"/> : "Enregistrer"}
               </button>
             </div>
           </form>
+          ) : (
+            <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 text-center py-2">Formulaire replié</p>
+          )}
         </div>
 
         {/* CATEGORÍAS */}
         <div className="bg-white p-8 rounded-xl shadow-sm border border-gray-100 h-fit">
-          <h3 className="text-xs font-bold uppercase tracking-widest text-[#B29071] mb-6 flex items-center gap-2"><Tag className="w-4 h-4" /> Catégories</h3>
-          <div className="flex gap-2 mb-2">
-            <input type="text" placeholder="Nom" value={newCatName} onChange={e => setNewCatName(e.target.value)} className="flex-1 border p-2 rounded text-sm outline-none focus:border-[#B29071]" />
-            <button onClick={handleSaveCategory} className="bg-black text-white p-2 rounded hover:bg-[#B29071] transition">{isEditingCat ? <CheckCircle2 className="w-5 h-5"/> : <Plus className="w-5 h-5"/>}</button>
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-xs font-bold uppercase tracking-widest text-[#B29071] flex items-center gap-2"><Tag className="w-4 h-4" /> Catégories</h3>
+            <button
+              type="button"
+              onClick={() => setIsCategoriesOpen(prev => !prev)}
+              className="px-4 py-2 rounded-full border border-gray-200 text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 hover:border-[#B29071] hover:text-[#B29071] transition"
+            >
+              {isCategoriesOpen ? "Replier" : "Déplier"}
+              {isCategoriesOpen ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+            </button>
           </div>
-          <p className="text-[9px] text-gray-400 italic px-1 mb-6">Ex: Crèmes, Sérums...</p>
-          <div className="space-y-2">
-            {categories.map(c => (
-              <div key={c.id} className="text-xs bg-gray-50 p-3 rounded flex justify-between items-center group">
-                <span>{c.name}</span>
-                <div className="flex gap-1 opacity-0 group-hover:opacity-100">
-                  <button onClick={() => {setIsEditingCat(true); setCurrentCatId(c.id); setNewCatName(c.name);}} className="text-gray-400 hover:text-[#B29071] p-1"><Pencil className="w-3.5 h-3.5"/></button>
-                  <button onClick={() => handleDeleteCategory(c.id)} className="text-gray-400 hover:text-red-500 p-1"><Trash2 className="w-3.5 h-3.5"/></button>
-                </div>
+          {isCategoriesOpen ? (
+            <>
+              <div className="flex gap-2 mb-2">
+                <input type="text" placeholder="Nom" value={newCatName} onChange={e => setNewCatName(e.target.value)} className="flex-1 border p-2 rounded text-sm outline-none focus:border-[#B29071]" />
+                <button onClick={handleSaveCategory} className="bg-black text-white p-2 rounded hover:bg-[#B29071] transition">{isEditingCat ? <CheckCircle2 className="w-5 h-5"/> : <Plus className="w-5 h-5"/>}</button>
               </div>
-            ))}
-          </div>
+              <p className="text-[9px] text-gray-400 italic px-1 mb-6">Ex: Crèmes, Sérums...</p>
+              <div className="space-y-2">
+                {categories.map(c => (
+                  <div key={c.id} className="text-xs bg-gray-50 p-3 rounded flex justify-between items-center group">
+                    <span>{c.name}</span>
+                    <div className="flex gap-1 opacity-0 group-hover:opacity-100">
+                      <button onClick={() => {setIsCategoriesOpen(true); setIsEditingCat(true); setCurrentCatId(c.id); setNewCatName(c.name);}} className="text-gray-400 hover:text-[#B29071] p-1"><Pencil className="w-3.5 h-3.5"/></button>
+                      <button onClick={() => handleDeleteCategory(c.id)} className="text-gray-400 hover:text-red-500 p-1"><Trash2 className="w-3.5 h-3.5"/></button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          ) : (
+            <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 text-center py-2">Catégories repliées</p>
+          )}
         </div>
       </div>
 

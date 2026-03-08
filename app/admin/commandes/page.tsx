@@ -30,10 +30,14 @@ interface Order {
 
 interface OrderItemRow {
   product_id: string;
+  cart_product_id?: string;
+  format?: string;
   quantity: number;
   isGift?: boolean;
   item_type?: "product" | "packaging";
 }
+
+const ALT_VARIANT_SUFFIX = "::alt";
 
 export default function AdminOrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
@@ -100,6 +104,8 @@ export default function AdminOrdersPage() {
       if (!Array.isArray(parsed)) return [];
       const normalized: OrderItemRow[] = parsed.map((row: any): OrderItemRow => ({
           product_id: String(row?.product_id || ""),
+          cart_product_id: String(row?.cart_product_id || ""),
+          format: String(row?.format || ""),
           quantity: Number(row?.quantity || 0),
           isGift: Boolean(row?.isGift),
           item_type: row?.item_type === "packaging" ? "packaging" : "product"
@@ -119,39 +125,77 @@ export default function AdminOrdersPage() {
     );
     const qtyById = new Map<string, number>();
     stockItems.forEach((row) => {
-      qtyById.set(row.product_id, (qtyById.get(row.product_id) || 0) + row.quantity);
+      const key = String(row.cart_product_id || row.product_id || "");
+      if (!key) return;
+      qtyById.set(key, (qtyById.get(key) || 0) + row.quantity);
     });
     return qtyById;
   };
 
-  const applyStockChange = async (qtyById: Map<string, number>, mode: "deduct" | "restore") => {
-    const productIds = Array.from(qtyById.keys());
-    if (productIds.length === 0) return;
+  const getBaseProductId = (cartProductId: string) => (
+    cartProductId.endsWith(ALT_VARIANT_SUFFIX)
+      ? cartProductId.slice(0, -ALT_VARIANT_SUFFIX.length)
+      : cartProductId
+  );
+  const isAltVariantProductId = (cartProductId: string) => cartProductId.endsWith(ALT_VARIANT_SUFFIX);
+
+  const applyStockChange = async (qtyByVariantId: Map<string, number>, mode: "deduct" | "restore") => {
+    const variantIds = Array.from(qtyByVariantId.keys());
+    if (variantIds.length === 0) return;
+    const productIds = Array.from(new Set(variantIds.map((variantId) => getBaseProductId(variantId))));
     const productsRes = await databases.listDocuments(DATABASE_ID, 'products', [
       Query.equal("$id", productIds),
       Query.limit(200)
     ]);
     const productMap = new Map<string, any>();
     productsRes.documents.forEach((p: any) => productMap.set(p.$id, p));
+
+    const qtyByBase = new Map<string, { primary: number; alt: number }>();
+    variantIds.forEach((variantId) => {
+      const baseId = getBaseProductId(variantId);
+      const current = qtyByBase.get(baseId) || { primary: 0, alt: 0 };
+      const qty = qtyByVariantId.get(variantId) || 0;
+      if (isAltVariantProductId(variantId)) {
+        current.alt += qty;
+      } else {
+        current.primary += qty;
+      }
+      qtyByBase.set(baseId, current);
+    });
+
     for (const productId of productIds) {
-      const qty = qtyById.get(productId) || 0;
+      const qty = qtyByBase.get(productId) || { primary: 0, alt: 0 };
       const product = productMap.get(productId);
       if (!product) {
         throw new Error(`Produit introuvable: ${productId}`);
       }
-      const currentStock = Number(product.stock || 0);
-      if (mode === "deduct" && currentStock < qty) {
-        throw new Error(`Stock insuffisant pour ${product.name || productId}`);
+      const currentPrimaryStock = Number(product.stock || 0);
+      const currentAltStock = Number((product as any).stock_alt || 0);
+      const hasAltStockField = typeof (product as any).stock_alt !== "undefined";
+      if (mode === "deduct" && currentPrimaryStock < qty.primary) {
+        throw new Error(`Stock insuffisant pour ${product.name || productId} (${String((product as any).format || "format principal")})`);
+      }
+      if (mode === "deduct" && qty.alt > 0) {
+        if (!hasAltStockField) {
+          throw new Error(`Stock variant manquant pour ${product.name || productId}. Ajoutez l'attribut stock_alt dans products.`);
+        }
+        if (currentAltStock < qty.alt) {
+          throw new Error(`Stock insuffisant pour ${product.name || productId} (${String((product as any).format_alt || "format secondaire")})`);
+        }
       }
     }
     for (const productId of productIds) {
-      const qty = qtyById.get(productId) || 0;
+      const qty = qtyByBase.get(productId) || { primary: 0, alt: 0 };
       const product = productMap.get(productId);
-      const currentStock = Number(product.stock || 0);
-      const nextStock = mode === "deduct" ? currentStock - qty : currentStock + qty;
-      await databases.updateDocument(DATABASE_ID, 'products', productId, {
-        stock: nextStock
-      });
+      const currentPrimaryStock = Number(product.stock || 0);
+      const currentAltStock = Number((product as any).stock_alt || 0);
+      const nextPrimaryStock = mode === "deduct" ? currentPrimaryStock - qty.primary : currentPrimaryStock + qty.primary;
+      const payload: Record<string, any> = { stock: nextPrimaryStock };
+      if (qty.alt > 0) {
+        const nextAltStock = mode === "deduct" ? currentAltStock - qty.alt : currentAltStock + qty.alt;
+        payload.stock_alt = nextAltStock;
+      }
+      await databases.updateDocument(DATABASE_ID, 'products', productId, payload);
     }
   };
 
@@ -213,7 +257,7 @@ export default function AdminOrdersPage() {
   const sendWhatsAppNotification = (order: Order) => {
     if (!order.clientPhone) return;
     const cleanPhone = order.clientPhone.replace(/\D/g, '');
-    const msg = `Bonjour ${order.clientName}, votre commande #${order.$id.slice(-5).toUpperCase()} chez Skineno a été expédiée !`;
+    const msg = `Bonjour ${order.clientName}, votre commande #${order.$id.slice(-5).toUpperCase()} chez Skinino a été expédiée !`;
     window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`, '_blank');
   };
 
