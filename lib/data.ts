@@ -48,6 +48,12 @@ export const getStoreSettings = async () => {
     const response = await databases.listDocuments(DATABASE_ID, COL_SETTINGS);
     return response.documents[0]; // Retorna el primer registro de configuración
   } catch (error) {
-    return { dynamic_menu_text: "Skineno", dynamic_menu_active: false };
+    return {
+      dynamic_menu_text: "Skineno",
+      dynamic_menu_active: false,
+      menu_visage_active: true,
+      menu_corps_active: true,
+      menu_cheveux_active: true,
+    };
   }
 };

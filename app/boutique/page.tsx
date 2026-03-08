@@ -69,7 +69,7 @@ export default function BoutiquePage() {
   );
 
   return (
-    <div className="min-h-screen bg-[#FDFBF7] text-black font-sans">
+    <div className="min-h-screen bg-white text-black font-sans">
       
       {/* Notificación visual de éxito */}
       {addedNotify && (
@@ -93,7 +93,7 @@ export default function BoutiquePage() {
           {products.map((product) => (
             <div key={product.id} className="flex flex-col">
               <Link href={`/produit/${product.id}`} className="block">
-                <div className="relative aspect-[4/5] overflow-hidden bg-white rounded-xl mb-3">
+                <div className="relative aspect-[4/5] overflow-hidden bg-gradient-to-b from-[#fbf8f2] to-white rounded-xl mb-3">
                   <img 
                     src={product.image_url} 
                     alt={product.name}
@@ -101,17 +101,17 @@ export default function BoutiquePage() {
                   />
                 </div>
               </Link>
-              <h3 className="font-serif text-[19px] uppercase leading-tight truncate">{product.name}</h3>
-              <p className="text-[11px] uppercase leading-tight mt-0.5 truncate">{product.mini_title || product.description_short || "Soin Skineno"}</p>
+              <h3 className="font-serif text-[17px] uppercase leading-tight truncate">{product.name}</h3>
+              <p className="text-[10px] uppercase leading-tight mt-0.5 truncate">{product.mini_title || product.description_short || "Soin Skineno"}</p>
               <div className="mt-2 flex items-center gap-2">
                 <button onClick={() => handleQuickAdd(product.id)} className="w-9 h-9 rounded-full bg-[#C7B186] text-white flex items-center justify-center">
                   <ShoppingBag className="w-4 h-4" />
                 </button>
                 <div>
-                  <p className="text-[15px] leading-none font-bold">{Number(product.price).toFixed(2)} DH</p>
+                  <p className="text-[14px] leading-none font-bold">{Number(product.price).toFixed(2)} MAD</p>
                   <div className="flex items-center gap-1 mt-1">
-                    {[...Array(5)].map((_, i) => <Star key={i} className="w-3 h-3 text-black" />)}
-                    <span className="text-[10px] ml-1">{Number(product.reviews_count || 0)}</span>
+                    {[...Array(5)].map((_, i) => <Star key={i} className="w-2.5 h-2.5 text-black" />)}
+                    <span className="text-[9px] ml-1">{Number(product.reviews_count || 0)}</span>
                   </div>
                 </div>
               </div>
@@ -119,25 +119,25 @@ export default function BoutiquePage() {
           ))}
         </div>
 
-        <div className="hidden lg:grid grid-cols-2 gap-x-8 gap-y-10">
+        <div className="hidden lg:grid grid-cols-4 gap-x-6 gap-y-10">
           {products.map((product) => (
             <div key={product.id} className="flex flex-col">
               <Link href={`/produit/${product.id}`} className="block">
-                <div className="relative aspect-[4/5] overflow-hidden bg-white rounded-xl mb-3">
+                <div className="relative aspect-[4/5] overflow-hidden bg-gradient-to-b from-[#fbf8f2] to-white rounded-xl mb-3">
                   <img src={product.image_url} alt={product.name} className="w-full h-full object-cover" />
                 </div>
               </Link>
-              <h3 className="font-serif text-[34px] uppercase leading-[0.95]">{product.name}</h3>
-              <p className="text-[13px] uppercase leading-tight mt-1">{product.mini_title || product.description_short || "Soin Skineno"}</p>
+              <h3 className="font-serif text-[17px] uppercase leading-tight truncate">{product.name}</h3>
+              <p className="text-[10px] uppercase leading-tight mt-1 truncate">{product.mini_title || product.description_short || "Soin Skineno"}</p>
               <div className="mt-3 flex items-center gap-3">
-                <button onClick={() => handleQuickAdd(product.id)} className="w-10 h-10 rounded-full bg-[#C7B186] text-white flex items-center justify-center">
-                  <ShoppingBag className="w-4 h-4" />
+                <button onClick={() => handleQuickAdd(product.id)} className="w-8 h-8 rounded-full bg-[#C7B186] text-white flex items-center justify-center">
+                  <ShoppingBag className="w-3.5 h-3.5" />
                 </button>
                 <div>
-                  <p className="text-[20px] leading-none font-bold">{Number(product.price).toFixed(2)} DH</p>
+                  <p className="text-[14px] leading-none font-bold">{Number(product.price).toFixed(2)} MAD</p>
                   <div className="flex items-center gap-1 mt-1">
-                    {[...Array(5)].map((_, i) => <Star key={i} className="w-3.5 h-3.5 text-black" />)}
-                    <span className="text-[11px] ml-1">{Number(product.reviews_count || 0)}</span>
+                    {[...Array(5)].map((_, i) => <Star key={i} className="w-2.5 h-2.5 text-black" />)}
+                    <span className="text-[9px] ml-1">{Number(product.reviews_count || 0)}</span>
                   </div>
                 </div>
               </div>

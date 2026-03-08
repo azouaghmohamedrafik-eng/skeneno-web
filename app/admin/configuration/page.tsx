@@ -6,10 +6,16 @@ import Link from "next/link";
 import { databases, DATABASE_ID } from "@/appwriteConfig"; 
 import { ID, Query } from "appwrite";
 
+const NAVBAR_CONFIG_PREFIX = "__NAVBAR_CONFIG__:";
+
 export default function SettingsPage() {
   const [menuText, setMenuText] = useState("");
   const [menuActive, setMenuActive] = useState(true);
+  const [menuVisageActive, setMenuVisageActive] = useState(true);
+  const [menuCorpsActive, setMenuCorpsActive] = useState(true);
+  const [menuCheveuxActive, setMenuCheveuxActive] = useState(true);
   const [loading, setLoading] = useState(false);
+  const [navbarConfigDocId, setNavbarConfigDocId] = useState<string | null>(null);
   
   const [promoMessages, setPromoMessages] = useState<{id: string, text: string, active: boolean}[]>([]);
   const [newPromo, setNewPromo] = useState("");
@@ -48,7 +54,10 @@ export default function SettingsPage() {
       if (response.documents.length > 0) {
         const data: any = response.documents[0];
         setMenuText(data.dynamic_menu_text);
-        setMenuActive(data.dynamic_menu_active);
+        setMenuActive(typeof data.dynamic_menu_active === "boolean" ? data.dynamic_menu_active : true);
+        setMenuVisageActive(typeof data.menu_visage_active === "boolean" ? data.menu_visage_active : true);
+        setMenuCorpsActive(typeof data.menu_corps_active === "boolean" ? data.menu_corps_active : true);
+        setMenuCheveuxActive(typeof data.menu_cheveux_active === "boolean" ? data.menu_cheveux_active : true);
       }
     } catch (error) {
     }
@@ -57,9 +66,25 @@ export default function SettingsPage() {
   async function fetchPromos() {
     try {
       const response = await databases.listDocuments(DATABASE_ID, 'top_bar_messages');
-      const formattedPromos = response.documents.map((doc: any) => ({
-        id: doc.$id, text: doc.text, active: doc.active
-      }));
+      const navbarCfgDoc = response.documents.find((doc: any) =>
+        String(doc.text || "").startsWith(NAVBAR_CONFIG_PREFIX)
+      ) as any;
+      if (navbarCfgDoc) {
+        setNavbarConfigDocId(navbarCfgDoc.$id);
+        try {
+          const parsed = JSON.parse(String(navbarCfgDoc.text).replace(NAVBAR_CONFIG_PREFIX, ""));
+          if (typeof parsed?.menu_visage_active === "boolean") setMenuVisageActive(parsed.menu_visage_active);
+          if (typeof parsed?.menu_corps_active === "boolean") setMenuCorpsActive(parsed.menu_corps_active);
+          if (typeof parsed?.menu_cheveux_active === "boolean") setMenuCheveuxActive(parsed.menu_cheveux_active);
+        } catch (error) {}
+      } else {
+        setNavbarConfigDocId(null);
+      }
+      const formattedPromos = response.documents
+        .filter((doc: any) => !String(doc.text || "").startsWith(NAVBAR_CONFIG_PREFIX))
+        .map((doc: any) => ({
+          id: doc.$id, text: doc.text, active: doc.active
+        }));
       setPromoMessages(formattedPromos);
     } catch (error) {
     }
@@ -98,6 +123,25 @@ export default function SettingsPage() {
         await databases.updateDocument(DATABASE_ID, 'store_settings', response.documents[0].$id, payload);
       } else {
         await databases.createDocument(DATABASE_ID, 'store_settings', ID.unique(), payload);
+      }
+
+      const navbarPayload = {
+        menu_visage_active: menuVisageActive,
+        menu_corps_active: menuCorpsActive,
+        menu_cheveux_active: menuCheveuxActive,
+      };
+      const serialized = `${NAVBAR_CONFIG_PREFIX}${JSON.stringify(navbarPayload)}`;
+      if (navbarConfigDocId) {
+        await databases.updateDocument(DATABASE_ID, 'top_bar_messages', navbarConfigDocId, {
+          text: serialized,
+          active: false,
+        });
+      } else {
+        const created = await databases.createDocument(DATABASE_ID, 'top_bar_messages', ID.unique(), {
+          text: serialized,
+          active: false,
+        });
+        setNavbarConfigDocId(created.$id);
       }
       notify("Configuration mise à jour !", "success");
     } catch (error) {
@@ -246,16 +290,53 @@ export default function SettingsPage() {
 
       <form onSubmit={handleSaveSettings} className="space-y-8">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-          <div className="bg-white p-8 rounded-xl shadow-sm border border-gray-100 h-fit">
-            <h3 className="text-xs font-bold uppercase tracking-widest mb-6 text-[#B29071]">Menu de Campagne</h3>
-            <div className="space-y-6">
-              <input type="text" value={menuText} onChange={(e) => setMenuText(e.target.value)} className="w-full bg-gray-50 border border-gray-200 p-4 text-sm rounded outline-none focus:border-[#B29071]" placeholder="Texte du lien" />
-              <p className="text-[11px] text-gray-400">Exemple: Ramadan • Soldes • Nouveautés</p>
-              <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg border border-gray-100 cursor-pointer" onClick={() => setMenuActive(!menuActive)}>
-                <div className={`w-10 h-6 rounded-full p-1 transition-colors ${menuActive ? "bg-[#B29071]" : "bg-gray-300"}`}>
-                  <div className={`bg-white w-4 h-4 rounded-full shadow-sm transition-transform ${menuActive ? "translate-x-4" : "translate-x-0"}`}></div>
+          <div className="bg-white p-8 rounded-xl shadow-sm border border-gray-100 h-fit space-y-8">
+            <div>
+              <h3 className="text-xs font-bold uppercase tracking-widest mb-6 text-[#B29071]">Menu de Campagne</h3>
+              <div className="space-y-6">
+                <input type="text" value={menuText} onChange={(e) => setMenuText(e.target.value)} className="w-full bg-gray-50 border border-gray-200 p-4 text-sm rounded outline-none focus:border-[#B29071]" placeholder="Texte du lien" />
+                <p className="text-[11px] text-gray-400">Exemple: Ramadan • Soldes • Nouveautés</p>
+                <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg border border-gray-100 cursor-pointer" onClick={() => setMenuActive(!menuActive)}>
+                  <div className={`w-10 h-6 rounded-full p-1 transition-colors ${menuActive ? "bg-[#B29071]" : "bg-gray-300"}`}>
+                    <div className={`bg-white w-4 h-4 rounded-full shadow-sm transition-transform ${menuActive ? "translate-x-4" : "translate-x-0"}`}></div>
+                  </div>
+                  <label className="text-sm font-medium cursor-pointer">Afficher dans la barre</label>
                 </div>
-                <label className="text-sm font-medium cursor-pointer">Afficher dans la barre</label>
+              </div>
+            </div>
+            <div className="border-t border-gray-100 pt-8">
+              <h3 className="text-xs font-bold uppercase tracking-widest mb-6 text-[#B29071]">Contrôle Menu Navbar</h3>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-100">
+                  <label className="text-sm font-medium">Visage</label>
+                  <button type="button" onClick={() => setMenuVisageActive(!menuVisageActive)} className={`w-10 h-6 rounded-full p-1 transition-colors ${menuVisageActive ? "bg-[#B29071]" : "bg-gray-300"}`}>
+                    <span className={`block bg-white w-4 h-4 rounded-full shadow-sm transition-transform ${menuVisageActive ? "translate-x-4" : "translate-x-0"}`}></span>
+                  </button>
+                </div>
+                <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-100">
+                  <label className="text-sm font-medium">Corps</label>
+                  <button type="button" onClick={() => setMenuCorpsActive(!menuCorpsActive)} className={`w-10 h-6 rounded-full p-1 transition-colors ${menuCorpsActive ? "bg-[#B29071]" : "bg-gray-300"}`}>
+                    <span className={`block bg-white w-4 h-4 rounded-full shadow-sm transition-transform ${menuCorpsActive ? "translate-x-4" : "translate-x-0"}`}></span>
+                  </button>
+                </div>
+                <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-100">
+                  <label className="text-sm font-medium">Cheveux</label>
+                  <button type="button" onClick={() => setMenuCheveuxActive(!menuCheveuxActive)} className={`w-10 h-6 rounded-full p-1 transition-colors ${menuCheveuxActive ? "bg-[#B29071]" : "bg-gray-300"}`}>
+                    <span className={`block bg-white w-4 h-4 rounded-full shadow-sm transition-transform ${menuCheveuxActive ? "translate-x-4" : "translate-x-0"}`}></span>
+                  </button>
+                </div>
+              </div>
+              <p className="text-[11px] text-gray-400 mt-4">TOUS NOS PRODUITS et NOS OFFRES restent fixes.</p>
+              <div className="mt-5 p-4 rounded-lg border border-gray-100 bg-gray-50">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-3">Preview Navbar</p>
+                <div className="flex flex-wrap gap-2 text-[10px] font-bold uppercase tracking-wider">
+                  <span className="px-3 py-1 rounded-full bg-white border border-gray-200">Tous nos produits</span>
+                  {menuActive && <span className="px-3 py-1 rounded-full bg-[#B29071]/10 border border-[#B29071]/30 text-[#B29071]">{menuText || "Menu Campagne"}</span>}
+                  {menuVisageActive && <span className="px-3 py-1 rounded-full bg-white border border-gray-200">Visage</span>}
+                  {menuCorpsActive && <span className="px-3 py-1 rounded-full bg-white border border-gray-200">Corps</span>}
+                  {menuCheveuxActive && <span className="px-3 py-1 rounded-full bg-white border border-gray-200">Cheveux</span>}
+                  <span className="px-3 py-1 rounded-full bg-white border border-gray-200">Nos offres</span>
+                </div>
               </div>
             </div>
           </div>

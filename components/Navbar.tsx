@@ -12,14 +12,19 @@ import { useCart } from "@/lib/CartContext";
 import { useWishlist } from "@/lib/WishlistContext";
 import { getStoreSettings } from "@/lib/data"; 
 
+const NAVBAR_CONFIG_PREFIX = "__NAVBAR_CONFIG__:";
+
 export default function Navbar() {
   const router = useRouter();
   const pathname = usePathname();
-  const { cartCount, addToCart } = useCart(); 
+  const { cart, cartCount, addToCart, removeFromCart, isCartDrawerOpen, openCartDrawer, closeCartDrawer } = useCart(); 
   const { wishlistCount } = useWishlist(); 
   
   const [menuText, setMenuText] = useState("SÉLECTION RAMADAN");
   const [menuActive, setMenuActive] = useState(false);
+  const [menuVisageActive, setMenuVisageActive] = useState(true);
+  const [menuCorpsActive, setMenuCorpsActive] = useState(true);
+  const [menuCheveuxActive, setMenuCheveuxActive] = useState(true);
   const [isLoaded, setIsLoaded] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   
@@ -46,6 +51,14 @@ export default function Navbar() {
   const [searchLoading, setSearchLoading] = useState(false);
   const searchPanelRef = useRef<HTMLDivElement | null>(null);
   const searchProductsScrollRef = useRef<HTMLDivElement | null>(null);
+  const [cartDrawerItems, setCartDrawerItems] = useState<Array<{ id: string; name: string; image_url: string; price: number; quantity: number; cartDocId: string }>>([]);
+  const [cartDrawerLoading, setCartDrawerLoading] = useState(false);
+  const [packaging, setPackaging] = useState<any>(null);
+  const [isPackagingOpen, setIsPackagingOpen] = useState(false);
+  const [giftMessage, setGiftMessage] = useState("");
+  const [msgStatus, setMsgStatus] = useState(false);
+  const [boxSize, setBoxSize] = useState("Moyen");
+  const [bagSize, setBagSize] = useState("Petit");
 
   // 1. EFECTO ULTRA-RÁPIDO PARA MENSAJES (Independiente de todo)
   useEffect(() => {
@@ -137,6 +150,18 @@ export default function Navbar() {
       } catch (err) {
         console.error("Error cargando configuración:", err);
       }
+      try {
+        const cfgRes = await databases.listDocuments(DATABASE_ID, 'top_bar_messages');
+        const cfgDoc: any = cfgRes.documents.find((doc: any) =>
+          String(doc.text || "").startsWith(NAVBAR_CONFIG_PREFIX)
+        );
+        if (cfgDoc?.text) {
+          const parsed = JSON.parse(String(cfgDoc.text).replace(NAVBAR_CONFIG_PREFIX, ""));
+          setMenuVisageActive(typeof parsed?.menu_visage_active === "boolean" ? parsed.menu_visage_active : true);
+          setMenuCorpsActive(typeof parsed?.menu_corps_active === "boolean" ? parsed.menu_corps_active : true);
+          setMenuCheveuxActive(typeof parsed?.menu_cheveux_active === "boolean" ? parsed.menu_cheveux_active : true);
+        }
+      } catch (err) {}
       setIsLoaded(true);
     }
     initNavbar();
@@ -145,7 +170,24 @@ export default function Navbar() {
   useEffect(() => {
     setIsSearchOpen(false);
     setSearchInput("");
+    closeCartDrawer();
   }, [pathname]);
+
+  useEffect(() => {
+    const savedMsg = localStorage.getItem("skineno_gift_message");
+    if (savedMsg) setGiftMessage(savedMsg);
+    const loadPackaging = async () => {
+      try {
+        const pkgRes = await databases.listDocuments(DATABASE_ID, "packaging_settings", [Query.limit(1)]);
+        if (pkgRes.documents.length > 0) {
+          setPackaging(pkgRes.documents[0]);
+        }
+      } catch (error) {
+        setPackaging(null);
+      }
+    };
+    loadPackaging();
+  }, []);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -172,9 +214,48 @@ export default function Navbar() {
 
   useEffect(() => {
     const isMobileViewport = typeof window !== "undefined" ? window.innerWidth < 1024 : false;
-    if (isMobileMenuOpen || (isSearchOpen && isMobileViewport)) document.body.style.overflow = 'hidden';
+    if (isMobileMenuOpen || isCartDrawerOpen || (isSearchOpen && isMobileViewport)) document.body.style.overflow = 'hidden';
     else document.body.style.overflow = 'unset';
-  }, [isMobileMenuOpen, isSearchOpen]);
+  }, [isMobileMenuOpen, isSearchOpen, isCartDrawerOpen]);
+
+  useEffect(() => {
+    const loadCartDrawerItems = async () => {
+      if (!cart || cart.length === 0) {
+        setCartDrawerItems([]);
+        return;
+      }
+      const productRows = cart.filter((item) => item.product_id !== "gift_box" && item.product_id !== "gift_bag");
+      if (productRows.length === 0) {
+        setCartDrawerItems([]);
+        return;
+      }
+      try {
+        setCartDrawerLoading(true);
+        const ids = productRows.map((item) => item.product_id);
+        const response = await databases.listDocuments(DATABASE_ID, "products", [Query.equal("$id", ids), Query.limit(100)]);
+        const qtyById: Record<string, { quantity: number; cartDocId: string }> = {};
+        productRows.forEach((row) => {
+          qtyById[row.product_id] = { quantity: row.quantity, cartDocId: row.$id || "" };
+        });
+        const mapped = response.documents
+          .map((doc: any) => ({
+            id: doc.$id,
+            name: doc.name,
+            image_url: doc.image_url || "/img/placeholder.jpg",
+            price: Number(doc.price || 0),
+            quantity: Number(qtyById[doc.$id]?.quantity || 1),
+            cartDocId: qtyById[doc.$id]?.cartDocId || "",
+          }))
+          .sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id));
+        setCartDrawerItems(mapped);
+      } catch (error) {
+        setCartDrawerItems([]);
+      } finally {
+        setCartDrawerLoading(false);
+      }
+    };
+    loadCartDrawerItems();
+  }, [cart]);
 
   useEffect(() => {
     async function fetchSearchData() {
@@ -248,6 +329,30 @@ export default function Navbar() {
     if (!searchProductsScrollRef.current) return;
     const distance = direction === "left" ? -320 : 320;
     searchProductsScrollRef.current.scrollBy({ left: distance, behavior: "smooth" });
+  };
+  const boxInCart = cart.find((item) => item.product_id === "gift_box");
+  const bagInCart = cart.find((item) => item.product_id === "gift_bag");
+  const updatePackagingQty = async (productId: "gift_box" | "gift_bag", delta: number) => {
+    const item = cart.find((row) => row.product_id === productId);
+    if (!item?.$id) {
+      if (delta > 0) await addToCart(productId, 1);
+      return;
+    }
+    if (delta < 0 && item.quantity <= 1) {
+      await removeFromCart(item.$id);
+      return;
+    }
+    await addToCart(productId, delta);
+  };
+  const handleSaveMessage = () => {
+    if (!giftMessage.trim()) {
+      localStorage.removeItem("skineno_gift_message");
+      setMsgStatus(false);
+      return;
+    }
+    localStorage.setItem("skineno_gift_message", giftMessage);
+    setMsgStatus(true);
+    setTimeout(() => setMsgStatus(false), 2000);
   };
 
   if (pathname?.startsWith("/admin")) return null;
@@ -420,14 +525,14 @@ export default function Navbar() {
               )}
             </Link>
 
-            <Link href="/panier" className="relative">
+            <button type="button" onClick={openCartDrawer} className="relative">
               <ShoppingBag className="w-5 h-5" />
               {cartCount > 0 && (
                 <span className="absolute -top-1 -right-2 bg-black text-white text-[9px] w-4 h-4 rounded-full flex items-center justify-center font-bold">
                   {cartCount}
                 </span>
               )}
-            </Link>
+            </button>
           </div>
         </div>
 
@@ -440,20 +545,26 @@ export default function Navbar() {
 
           {isLoaded && menuActive && <div className="flex items-center"><Link href="/selection" className="text-[#B29071]">{menuText}</Link></div>}
           
-          <div className="h-full flex items-center static px-2" onMouseEnter={() => setActiveMegaMenu('VISAGE')} onMouseLeave={() => setActiveMegaMenu(null)}>
-            <Link href="/boutique/Visage" className={`hover:text-[#B29071] py-2 transition-colors ${activeMegaMenu === 'VISAGE' ? 'text-[#B29071]' : ''}`}>VISAGE</Link>
-            <MegaMenu category="VISAGE" products={megaMenuProducts["VISAGE"]} displayTitle="SOINS VISAGE" />
-          </div>
+          {menuVisageActive && (
+            <div className="h-full flex items-center static px-2" onMouseEnter={() => setActiveMegaMenu('VISAGE')} onMouseLeave={() => setActiveMegaMenu(null)}>
+              <Link href="/boutique/Visage" className={`hover:text-[#B29071] py-2 transition-colors ${activeMegaMenu === 'VISAGE' ? 'text-[#B29071]' : ''}`}>VISAGE</Link>
+              <MegaMenu category="VISAGE" products={megaMenuProducts["VISAGE"]} displayTitle="SOINS VISAGE" />
+            </div>
+          )}
 
-          <div className="h-full flex items-center static px-2" onMouseEnter={() => setActiveMegaMenu('CORPS')} onMouseLeave={() => setActiveMegaMenu(null)}>
-            <Link href="/boutique/Corps" className={`hover:text-[#B29071] py-2 transition-colors ${activeMegaMenu === 'CORPS' ? 'text-[#B29071]' : ''}`}>CORPS</Link>
-            <MegaMenu category="CORPS" products={megaMenuProducts["CORPS"]} displayTitle="SOINS CORPS" />
-          </div>
+          {menuCorpsActive && (
+            <div className="h-full flex items-center static px-2" onMouseEnter={() => setActiveMegaMenu('CORPS')} onMouseLeave={() => setActiveMegaMenu(null)}>
+              <Link href="/boutique/Corps" className={`hover:text-[#B29071] py-2 transition-colors ${activeMegaMenu === 'CORPS' ? 'text-[#B29071]' : ''}`}>CORPS</Link>
+              <MegaMenu category="CORPS" products={megaMenuProducts["CORPS"]} displayTitle="SOINS CORPS" />
+            </div>
+          )}
 
-          <div className="h-full flex items-center static px-2" onMouseEnter={() => setActiveMegaMenu('CHEVEUX')} onMouseLeave={() => setActiveMegaMenu(null)}>
-            <Link href="/boutique/Cheveux" className={`hover:text-[#B29071] py-2 transition-colors ${activeMegaMenu === 'CHEVEUX' ? 'text-[#B29071]' : ''}`}>CHEVEUX</Link>
-            <MegaMenu category="CHEVEUX" products={megaMenuProducts["CHEVEUX"]} displayTitle="SOINS CHEVEUX" />
-          </div>
+          {menuCheveuxActive && (
+            <div className="h-full flex items-center static px-2" onMouseEnter={() => setActiveMegaMenu('CHEVEUX')} onMouseLeave={() => setActiveMegaMenu(null)}>
+              <Link href="/boutique/Cheveux" className={`hover:text-[#B29071] py-2 transition-colors ${activeMegaMenu === 'CHEVEUX' ? 'text-[#B29071]' : ''}`}>CHEVEUX</Link>
+              <MegaMenu category="CHEVEUX" products={megaMenuProducts["CHEVEUX"]} displayTitle="SOINS CHEVEUX" />
+            </div>
+          )}
 
           <div className="h-full flex items-center static px-2" onMouseEnter={() => setActiveMegaMenu('OFFRES')} onMouseLeave={() => setActiveMegaMenu(null)}>
             <Link href="/offres" className={`hover:text-[#B29071] py-2 transition-colors ${activeMegaMenu === 'OFFRES' ? 'text-[#B29071]' : ''}`}>NOS OFFRES</Link>
@@ -565,9 +676,14 @@ export default function Navbar() {
           </div>
           <div className="p-6">
             <Link href="/boutique" onClick={() => setIsMobileMenuOpen(false)} className="block py-4 border-b text-[12px] font-bold">TOUS NOS PRODUITS</Link>
-            <Link href="/boutique/Visage" onClick={() => setIsMobileMenuOpen(false)} className="block py-4 border-b text-[12px] font-bold">VISAGE</Link>
-            <Link href="/boutique/Corps" onClick={() => setIsMobileMenuOpen(false)} className="block py-4 border-b text-[12px] font-bold">CORPS</Link>
-            <Link href="/boutique/Cheveux" onClick={() => setIsMobileMenuOpen(false)} className="block py-4 border-b text-[12px] font-bold">CHEVEUX</Link>
+            {isLoaded && menuActive && (
+              <Link href="/selection" onClick={() => setIsMobileMenuOpen(false)} className="block py-4 border-b text-[12px] font-bold text-[#B29071]">
+                {menuText}
+              </Link>
+            )}
+            {menuVisageActive && <Link href="/boutique/Visage" onClick={() => setIsMobileMenuOpen(false)} className="block py-4 border-b text-[12px] font-bold">VISAGE</Link>}
+            {menuCorpsActive && <Link href="/boutique/Corps" onClick={() => setIsMobileMenuOpen(false)} className="block py-4 border-b text-[12px] font-bold">CORPS</Link>}
+            {menuCheveuxActive && <Link href="/boutique/Cheveux" onClick={() => setIsMobileMenuOpen(false)} className="block py-4 border-b text-[12px] font-bold">CHEVEUX</Link>}
             <Link href="/offres" onClick={() => setIsMobileMenuOpen(false)} className="block py-4 border-b text-[12px] font-bold">NOS OFFRES</Link>
             {user ? (
               <div className="mt-10 pt-6 border-t border-gray-200 space-y-3">
@@ -588,6 +704,216 @@ export default function Navbar() {
                 <User className="w-4 h-4" /> Se connecter
               </Link>
             )}
+          </div>
+        </div>
+      </div>
+
+      <div className={`fixed inset-0 z-[113] transition-all duration-300 ${isCartDrawerOpen ? "opacity-100 visible" : "opacity-0 invisible pointer-events-none"}`}>
+        <div className="absolute inset-0 bg-black/45" onClick={closeCartDrawer} />
+        <div className={`absolute right-0 top-0 h-full w-full max-w-[460px] bg-white shadow-2xl transition-transform duration-300 hidden lg:flex flex-col ${isCartDrawerOpen ? "translate-x-0" : "translate-x-full"}`}>
+          <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between">
+            <h3 className="text-sm font-bold uppercase tracking-[0.2em]">Votre Panier</h3>
+            <button type="button" onClick={closeCartDrawer} className="w-9 h-9 rounded-full bg-[#C7B186] text-white flex items-center justify-center">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+          <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+            {cartDrawerLoading && <p className="text-sm text-gray-400">Chargement...</p>}
+            {!cartDrawerLoading && cartDrawerItems.length === 0 && <p className="text-sm text-gray-500">Votre panier est vide.</p>}
+            {!cartDrawerLoading && cartDrawerItems.map((item) => (
+              <div key={item.id} className="flex gap-4 border-b border-gray-100 pb-4">
+                <img src={item.image_url} alt={item.name} className="w-20 h-20 rounded-xl object-cover bg-[#fafafa]" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-[12px] font-bold uppercase truncate">{item.name}</p>
+                  <p className="text-[12px] mt-1">{item.price.toFixed(2)} MAD</p>
+                  <div className="mt-3 flex items-center justify-between">
+                    <div className="flex items-center border border-gray-200 rounded-full px-2 py-1 gap-3">
+                      <button type="button" onClick={() => item.quantity <= 1 ? removeFromCart(item.cartDocId) : addToCart(item.id, -1)} className="text-xs font-bold">-</button>
+                      <span className="text-xs font-bold min-w-[16px] text-center">{item.quantity}</span>
+                      <button type="button" onClick={() => addToCart(item.id, 1)} className="text-xs font-bold">+</button>
+                    </div>
+                    <button type="button" onClick={() => removeFromCart(item.cartDocId)} className="text-[10px] uppercase underline">Supprimer</button>
+                  </div>
+                </div>
+              </div>
+            ))}
+            {packaging && (packaging.box_active || packaging.bag_active) && (
+              <div className="pt-3 border-t border-gray-100 space-y-4">
+                <button type="button" onClick={() => setIsPackagingOpen((prev) => !prev)} className="text-[10px] font-bold uppercase tracking-[0.2em]">
+                  Ajouter un coffret cadeau {isPackagingOpen ? "-" : "+"}
+                </button>
+                {isPackagingOpen && (
+                  <div className="space-y-4">
+                    {packaging.box_active && (
+                      <div className="border border-gray-100 rounded-2xl p-3 space-y-2">
+                        <div className="flex items-center gap-3">
+                          <img src={packaging.box_image} alt="Coffret" className="w-12 h-12 object-contain bg-[#fafafa] rounded-lg" />
+                          <div className="flex-1">
+                            <p className="text-[10px] font-bold uppercase">Coffret Cadeau</p>
+                            <p className="text-[10px] text-gray-500">{Number(packaging.box_price || 0).toFixed(2)} MAD</p>
+                          </div>
+                          <div className="flex items-center border border-gray-200 rounded-full px-2 py-1 gap-2">
+                            <button type="button" onClick={() => updatePackagingQty("gift_box", -1)} className="text-xs font-bold">-</button>
+                            <span className="text-xs font-bold">{boxInCart?.quantity || 0}</span>
+                            <button type="button" onClick={() => updatePackagingQty("gift_box", 1)} className="text-xs font-bold">+</button>
+                          </div>
+                        </div>
+                        <select value={boxSize} onChange={(e) => setBoxSize(e.target.value)} className="w-full border border-gray-200 rounded-full px-3 py-1 text-[10px] bg-white outline-none">
+                          <option value="Petit">Petit</option>
+                          <option value="Moyen">Moyen</option>
+                          <option value="Grand">Grand</option>
+                        </select>
+                      </div>
+                    )}
+                    {packaging.bag_active && (
+                      <div className="border border-gray-100 rounded-2xl p-3 space-y-2">
+                        <div className="flex items-center gap-3">
+                          <img src={packaging.bag_image} alt="Sac" className="w-12 h-12 object-contain bg-[#fafafa] rounded-lg" />
+                          <div className="flex-1">
+                            <p className="text-[10px] font-bold uppercase">Sac Cadeau</p>
+                            <p className="text-[10px] text-gray-500">{Number(packaging.bag_price || 0).toFixed(2)} MAD</p>
+                          </div>
+                          <div className="flex items-center border border-gray-200 rounded-full px-2 py-1 gap-2">
+                            <button type="button" onClick={() => updatePackagingQty("gift_bag", -1)} className="text-xs font-bold">-</button>
+                            <span className="text-xs font-bold">{bagInCart?.quantity || 0}</span>
+                            <button type="button" onClick={() => updatePackagingQty("gift_bag", 1)} className="text-xs font-bold">+</button>
+                          </div>
+                        </div>
+                        <select value={bagSize} onChange={(e) => setBagSize(e.target.value)} className="w-full border border-gray-200 rounded-full px-3 py-1 text-[10px] bg-white outline-none">
+                          <option value="Petit">Petit</option>
+                          <option value="Moyen">Moyen</option>
+                          <option value="Grand">Grand</option>
+                        </select>
+                      </div>
+                    )}
+                    <div className="space-y-2">
+                      <textarea
+                        value={giftMessage}
+                        onChange={(e) => {
+                          setGiftMessage(e.target.value);
+                          localStorage.setItem("skineno_gift_message", e.target.value);
+                        }}
+                        placeholder="Votre message cadeau"
+                        className="w-full border border-gray-200 rounded-2xl p-3 text-sm outline-none focus:border-[#B29071] resize-none"
+                      />
+                      <button type="button" onClick={handleSaveMessage} className={`text-[10px] font-bold uppercase tracking-widest px-5 py-2 rounded-full border ${msgStatus ? "bg-green-600 text-white border-green-600" : "border-gray-200 hover:bg-black hover:text-white"}`}>
+                        {msgStatus ? "Validé" : "Valider"}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+          <div className="border-t border-gray-100 px-6 py-5 space-y-4">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] uppercase tracking-[0.2em] font-bold">Total</span>
+              <span className="text-base font-bold">{(cartDrawerItems.reduce((sum, item) => sum + (item.price * item.quantity), 0) + ((boxInCart ? (Number(packaging?.box_price || 0) * boxInCart.quantity) : 0) + (bagInCart ? (Number(packaging?.bag_price || 0) * bagInCart.quantity) : 0))).toFixed(2)} MAD</span>
+            </div>
+            <button type="button" onClick={() => { closeCartDrawer(); router.push("/panier"); }} className="w-full border border-black text-black rounded-full py-3 text-[10px] font-bold uppercase tracking-widest">
+              Voir le panier
+            </button>
+            <button type="button" onClick={() => { closeCartDrawer(); router.push("/checkout"); }} className="w-full bg-black text-white rounded-full py-3 text-[10px] font-bold uppercase tracking-widest">
+              Finaliser ma commande
+            </button>
+          </div>
+        </div>
+        <div className={`absolute bottom-0 left-0 right-0 bg-white rounded-t-3xl shadow-2xl max-h-[86vh] flex flex-col lg:hidden transition-transform duration-300 ${isCartDrawerOpen ? "translate-y-0" : "translate-y-full"}`}>
+          <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+            <h3 className="text-xs font-bold uppercase tracking-[0.2em]">Votre Panier {cartCount > 0 ? `${cartCount} Produit` : ""}</h3>
+            <button type="button" onClick={closeCartDrawer} className="w-9 h-9 rounded-full bg-[#C7B186] text-white flex items-center justify-center">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+          <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+            {cartDrawerLoading && <p className="text-sm text-gray-400">Chargement...</p>}
+            {!cartDrawerLoading && cartDrawerItems.length === 0 && <p className="text-sm text-gray-500">Votre panier est vide.</p>}
+            {!cartDrawerLoading && cartDrawerItems.map((item) => (
+              <div key={item.id} className="flex gap-3 border-b border-gray-100 pb-4">
+                <img src={item.image_url} alt={item.name} className="w-16 h-16 rounded-xl object-cover bg-[#fafafa]" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-[11px] font-bold uppercase truncate">{item.name}</p>
+                  <p className="text-[11px] mt-1">{item.price.toFixed(2)} MAD</p>
+                  <div className="mt-2 flex items-center justify-between">
+                    <div className="flex items-center border border-gray-200 rounded-full px-2 py-1 gap-3">
+                      <button type="button" onClick={() => item.quantity <= 1 ? removeFromCart(item.cartDocId) : addToCart(item.id, -1)} className="text-xs font-bold">-</button>
+                      <span className="text-xs font-bold min-w-[16px] text-center">{item.quantity}</span>
+                      <button type="button" onClick={() => addToCart(item.id, 1)} className="text-xs font-bold">+</button>
+                    </div>
+                    <button type="button" onClick={() => removeFromCart(item.cartDocId)} className="text-[9px] uppercase underline">Supprimer</button>
+                  </div>
+                </div>
+              </div>
+            ))}
+            {packaging && (packaging.box_active || packaging.bag_active) && (
+              <div className="pt-3 border-t border-gray-100 space-y-4">
+                <button type="button" onClick={() => setIsPackagingOpen((prev) => !prev)} className="text-[10px] font-bold uppercase tracking-[0.2em]">
+                  Ajouter un coffret cadeau {isPackagingOpen ? "-" : "+"}
+                </button>
+                {isPackagingOpen && (
+                  <div className="space-y-4">
+                    {packaging.box_active && (
+                      <div className="border border-gray-100 rounded-2xl p-3 space-y-2">
+                        <div className="flex items-center gap-3">
+                          <img src={packaging.box_image} alt="Coffret" className="w-11 h-11 object-contain bg-[#fafafa] rounded-lg" />
+                          <div className="flex-1">
+                            <p className="text-[10px] font-bold uppercase">Coffret Cadeau</p>
+                            <p className="text-[10px] text-gray-500">{Number(packaging.box_price || 0).toFixed(2)} MAD</p>
+                          </div>
+                          <div className="flex items-center border border-gray-200 rounded-full px-2 py-1 gap-2">
+                            <button type="button" onClick={() => updatePackagingQty("gift_box", -1)} className="text-xs font-bold">-</button>
+                            <span className="text-xs font-bold">{boxInCart?.quantity || 0}</span>
+                            <button type="button" onClick={() => updatePackagingQty("gift_box", 1)} className="text-xs font-bold">+</button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    {packaging.bag_active && (
+                      <div className="border border-gray-100 rounded-2xl p-3 space-y-2">
+                        <div className="flex items-center gap-3">
+                          <img src={packaging.bag_image} alt="Sac" className="w-11 h-11 object-contain bg-[#fafafa] rounded-lg" />
+                          <div className="flex-1">
+                            <p className="text-[10px] font-bold uppercase">Sac Cadeau</p>
+                            <p className="text-[10px] text-gray-500">{Number(packaging.bag_price || 0).toFixed(2)} MAD</p>
+                          </div>
+                          <div className="flex items-center border border-gray-200 rounded-full px-2 py-1 gap-2">
+                            <button type="button" onClick={() => updatePackagingQty("gift_bag", -1)} className="text-xs font-bold">-</button>
+                            <span className="text-xs font-bold">{bagInCart?.quantity || 0}</span>
+                            <button type="button" onClick={() => updatePackagingQty("gift_bag", 1)} className="text-xs font-bold">+</button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    <div className="space-y-2">
+                      <textarea
+                        value={giftMessage}
+                        onChange={(e) => {
+                          setGiftMessage(e.target.value);
+                          localStorage.setItem("skineno_gift_message", e.target.value);
+                        }}
+                        placeholder="Votre message cadeau"
+                        className="w-full border border-gray-200 rounded-2xl p-3 text-sm outline-none focus:border-[#B29071] resize-none"
+                      />
+                      <button type="button" onClick={handleSaveMessage} className={`text-[10px] font-bold uppercase tracking-widest px-5 py-2 rounded-full border ${msgStatus ? "bg-green-600 text-white border-green-600" : "border-gray-200 hover:bg-black hover:text-white"}`}>
+                        {msgStatus ? "Validé" : "Valider"}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+          <div className="border-t border-gray-100 px-5 py-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] uppercase tracking-[0.2em] font-bold">Total</span>
+              <span className="text-base font-bold">{(cartDrawerItems.reduce((sum, item) => sum + (item.price * item.quantity), 0) + ((boxInCart ? (Number(packaging?.box_price || 0) * boxInCart.quantity) : 0) + (bagInCart ? (Number(packaging?.bag_price || 0) * bagInCart.quantity) : 0))).toFixed(2)} MAD</span>
+            </div>
+            <button type="button" onClick={() => { closeCartDrawer(); router.push("/panier"); }} className="w-full border border-black text-black rounded-full py-3 text-[10px] font-bold uppercase tracking-widest">
+              Voir le panier
+            </button>
+            <button type="button" onClick={() => { closeCartDrawer(); router.push("/checkout"); }} className="w-full bg-black text-white rounded-full py-3 text-[10px] font-bold uppercase tracking-widest">
+              Finaliser ma commande
+            </button>
           </div>
         </div>
       </div>

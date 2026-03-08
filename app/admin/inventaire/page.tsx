@@ -237,6 +237,36 @@ export default function InventoryPage() {
     }
   };
 
+  const startEditProduct = (p: Product) => {
+    setIsEditing(true);
+    setCurrentId(p.id);
+    setForm({
+      name: p.name,
+      price: p.price.toString(),
+      format: p.format || "",
+      miniTitle: p.mini_title || "",
+      desc: p.description || "",
+      descShort: p.description_short || "",
+      descLong: p.description_long || "",
+      ing: p.ingredients || "",
+      ingredientsTitle: p.ingredients_panel_title || "",
+      ingredientsContent: p.ingredients_panel_content || "",
+      cat: p.category_id || "",
+      img: p.image_url,
+      img2: p.image_url_2 || "",
+      img3: p.image_url_3 || "",
+      img4: p.image_url_4 || "",
+      isOffer: p.is_offer,
+      isGift: p.is_gift,
+      isVisage: p.is_visage,
+      isCorps: p.is_corps,
+      isCheveux: p.is_cheveux,
+      isSpecial: p.is_special,
+      isSuggested: p.is_suggested
+    });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   return (
     <div className="space-y-10 animate-fade-in-up pb-20">
       {/* NOTIFICATION */}
@@ -422,9 +452,42 @@ export default function InventoryPage() {
         </div>
       </div>
 
+      <div className="md:hidden space-y-3 mt-10">
+        {products.map((p) => (
+          <div key={p.id} className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+            <div className="flex items-start gap-3">
+              <img src={p.image_url || "/placeholder.png"} className="w-14 h-14 object-cover rounded border" alt={p.name} />
+              <div className="flex-1 min-w-0">
+                <p className="font-bold text-sm truncate">{p.name}</p>
+                <p className="text-[10px] text-gray-400 uppercase">{categories.find(c => c.id === p.category_id)?.name || "—"}</p>
+                <div className="flex items-center gap-2 mt-2">
+                  <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${p.stock > 0 ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
+                    {p.stock} un.
+                  </span>
+                  <span className="text-[11px] font-bold text-[#B29071]">{p.price.toFixed(2)} MAD</span>
+                </div>
+              </div>
+            </div>
+            <div className="mt-3 flex items-center justify-between">
+              <button onClick={() => toggleSuggested(p.id, p.is_suggested)} className={`p-2 rounded-full transition-colors ${p.is_suggested ? 'bg-black text-white' : 'bg-gray-100 text-gray-400'}`}>
+                <Sparkles className="w-4 h-4" />
+              </button>
+              <div className="flex items-center gap-2">
+                <button onClick={() => startEditProduct(p)} className="text-gray-500 p-2 bg-gray-50 rounded-full">
+                  <Pencil className="w-4 h-4" />
+                </button>
+                <button onClick={() => deleteProduct(p.id)} className="text-red-500 p-2 bg-red-50 rounded-full">
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
       {/* TABLA */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mt-10">
-        <table className="w-full text-left">
+      <div className="hidden md:block bg-white rounded-xl shadow-sm border border-gray-100 overflow-x-auto mt-10">
+        <table className="w-full text-left min-w-[860px]">
           <thead className="bg-gray-50 border-b font-bold text-[10px] uppercase text-gray-500">
             <tr><th className="p-4">Produit</th><th className="p-4">Étiquettes</th><th className="p-4 text-center">Suggéré</th><th className="p-4 text-center">Stock Actuel</th><th className="p-4">Prix</th><th className="p-4 text-right">Actions</th></tr>
           </thead>
@@ -459,34 +522,7 @@ export default function InventoryPage() {
                 <td className="p-4 font-bold text-[#B29071]">{p.price.toFixed(2)} MAD</td>
                 <td className="p-4 text-right">
                   <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100">
-                    <button onClick={() => {
-                      setIsEditing(true); setCurrentId(p.id);
-                      setForm({ 
-                        name:p.name, 
-                        price:p.price.toString(), 
-                        format:p.format || "", 
-                        miniTitle: p.mini_title || "",
-                        desc:p.description || "", 
-                        descShort: p.description_short || "",
-                        descLong: p.description_long || "",
-                        ing:p.ingredients || "", 
-                        ingredientsTitle: p.ingredients_panel_title || "",
-                        ingredientsContent: p.ingredients_panel_content || "",
-                        cat:p.category_id || "", 
-                        img:p.image_url, 
-                        img2:p.image_url_2 || "",
-                        img3:p.image_url_3 || "",
-                        img4:p.image_url_4 || "",
-                        isOffer: p.is_offer, 
-                        isGift: p.is_gift, 
-                        isVisage: p.is_visage, 
-                        isCorps: p.is_corps, 
-                        isCheveux: p.is_cheveux, 
-                        isSpecial: p.is_special,
-                        isSuggested: p.is_suggested // CARGA NUEVA
-                      });
-                      window.scrollTo({top: 0, behavior: 'smooth'});
-                    }} className="text-gray-400 hover:text-[#B29071] p-2 hover:bg-gray-50 rounded-full"><Pencil className="w-4 h-4"/></button>
+                    <button onClick={() => startEditProduct(p)} className="text-gray-400 hover:text-[#B29071] p-2 hover:bg-gray-50 rounded-full"><Pencil className="w-4 h-4"/></button>
                     <button onClick={() => deleteProduct(p.id)} className="text-gray-400 hover:text-red-500 p-2 hover:bg-red-50 rounded-full"><Trash2 className="w-4 h-4"/></button>
                   </div>
                 </td>
