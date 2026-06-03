@@ -19,6 +19,7 @@
     "lucide-react": "latest",
     "next": "^16.1.6",
     "node-appwrite": "^22.1.2",
+    "node-cron": "^4.2.1",
     "node-fetch": "^3.3.2",
     "react": "latest",
     "react-dom": "latest"
