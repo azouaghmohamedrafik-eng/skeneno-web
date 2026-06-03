@@ -39,8 +39,8 @@ export default function Footer() {
     fetchSocials();
   }, []);
 
-  // REGLA: Si estamos en Admin, el Footer no se renderiza
-  if (pathname?.startsWith("/admin")) {
+  // REGLA: Si estamos en Admin o en la landing de venta, el Footer no se renderiza
+  if (pathname?.startsWith("/admin") || pathname === "/vendre") {
     return null;
   }
 

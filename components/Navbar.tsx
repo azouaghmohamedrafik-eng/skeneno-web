@@ -452,7 +452,7 @@ export default function Navbar() {
     setTimeout(() => setMsgStatus(false), 2000);
   };
 
-  if (pathname?.startsWith("/admin")) return null;
+  if (pathname?.startsWith("/admin") || pathname === "/vendre") return null;
 
   const MegaMenu = ({ category, products, displayTitle }: { category: string, products: any[], displayTitle: string }) => (
     <div 
