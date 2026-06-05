@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 export function middleware(request: NextRequest) {
-  const isVentaMode = true; // true = Modo Venta activo
+  const isVentaMode = false; // true = Modo Venta activo
 
   const { pathname } = request.nextUrl;
 
